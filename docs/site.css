@@ -1,0 +1,207 @@
+/* Warm paper, ink text, one clay accent reserved for the thing the whole
+   simulation is about: the outliers and the true parameter they pull away
+   from. Estimators get cool hues so they never compete with it. */
+:root {
+  --paper: #fdfcf9;
+  --panel: #f6f3ec;
+  --ink:   #1f1d1a;
+  --muted: #7b746a;
+  --rule:  #ddd7cb;
+  --clay:  #b8452f;
+
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua",
+           Georgia, serif;
+  --mono:  ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0 28px 56px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 17px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+.masthead, nav.views, .knobs.global, main, footer {
+  max-width: 1240px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ---- masthead ------------------------------------------------------------ */
+.masthead { padding: 34px 0 16px; }
+.masthead h1 {
+  font-size: 30px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  margin: 0 0 8px;
+}
+.lede {
+  margin: 0;
+  max-width: 74ch;
+  color: var(--muted);
+  font-size: 16px;
+}
+.lede .mono, .caption .mono, footer .mono { color: var(--ink); }
+
+.mono, .val, .readout, .knobs { font-family: var(--mono); }
+.mono { font-size: 0.92em; }
+
+/* ---- tabs ---------------------------------------------------------------- */
+/* Used both for the view switcher and for in-view choices, so the two read as
+   the same kind of control. */
+.tabs { display: flex; gap: 0; }
+.tabs .tab {
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 13px;
+  background: none;
+  color: var(--muted);
+  border: 1px solid var(--rule);
+  border-right-width: 0;
+  padding: 5px 14px;
+  cursor: pointer;
+  border-radius: 0;
+  white-space: nowrap;
+}
+.tabs .tab:last-child { border-right-width: 1px; }
+.tabs .tab:hover { color: var(--ink); }
+.tabs .tab.on {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+.tabs .tab:focus-visible { outline: 2px solid var(--clay); outline-offset: 2px; }
+
+nav.views {
+  margin-top: 12px;
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 14px;
+}
+
+/* ---- knobs --------------------------------------------------------------- */
+.knobs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 30px;
+  align-items: center;
+  border-top: 1px solid var(--rule);
+  padding-top: 10px;
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.knobs.global {
+  border-top: none;
+  border-bottom: 1px solid var(--rule);
+  padding: 14px 0;
+  margin-top: 0;
+}
+.knobs:empty { display: none; }
+
+.ctl { display: flex; align-items: center; gap: 9px; cursor: pointer; }
+.ctl .lbl { color: var(--muted); }
+.ctl .val { min-width: 3.4em; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+.knobs input[type=range] { width: 220px; accent-color: var(--clay); }
+.knobs input[type=checkbox] { accent-color: var(--clay); }
+
+/* A method toggle is a legend entry that happens to be clickable, so it carries
+   its own swatch rather than a checkbox. */
+.legend { display: flex; gap: 0; }
+.legend .item {
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: none;
+  border: 1px solid var(--rule);
+  border-right-width: 0;
+  padding: 5px 12px;
+  cursor: pointer;
+  color: var(--muted);
+}
+.legend .item:last-child { border-right-width: 1px; }
+.legend .item .swatch {
+  width: 11px; height: 11px; border-radius: 50%;
+  border: 1.5px solid currentColor;
+  background: none;
+}
+.legend .item.on { color: var(--ink); }
+.legend .item.on .swatch { background: currentColor; }
+.legend .item:focus-visible { outline: 2px solid var(--clay); outline-offset: 2px; }
+
+/* ---- stage --------------------------------------------------------------- */
+/* One figure carrying the argument on the left, its supporting panels on the
+   right. Fractional columns rather than fixed widths so the page reflows, with
+   min-width: 0 to stop the SVGs forcing the grid wider than the viewport. */
+.stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: 30px;
+  align-items: start;
+  margin-top: 22px;
+}
+.stage .left, .stage .right { min-width: 0; }
+.stage .right { display: flex; flex-direction: column; }
+
+.view { display: none; }
+.view.on { display: block; }
+
+.view h2 {
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--muted);
+  margin: 0 0 8px;
+  letter-spacing: 0.01em;
+}
+.right h2 + .figure { margin-bottom: 20px; }
+.right h2:not(:first-child) { margin-top: 4px; }
+
+.figure svg { display: block; width: 100%; height: auto; overflow: visible; }
+
+.readout {
+  font-size: 14px;
+  color: var(--ink);
+  border-top: 1px solid var(--rule);
+  margin-top: 10px;
+  padding-top: 8px;
+  min-height: 42px;
+  font-variant-numeric: tabular-nums;
+}
+.readout .dim { color: var(--muted); }
+.readout .sep { color: var(--rule); margin: 0 9px; }
+.readout b { font-weight: 600; }
+
+.caption {
+  font-size: 15px;
+  color: var(--muted);
+  margin-top: 14px;
+  max-width: 92ch;
+}
+.caption em { color: var(--ink); font-style: italic; }
+
+footer {
+  margin-top: 40px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+  font-size: 14px;
+  color: var(--muted);
+}
+footer a { color: var(--muted); }
+
+/* ---- narrow ------------------------------------------------------------- */
+/* Below this the two columns are each too narrow for an axis, so they stack
+   and the right-hand panels simply follow the main figure. */
+@media (max-width: 1000px) {
+  .stage { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  body { padding: 0 16px 40px; }
+  .knobs input[type=range] { width: 170px; }
+}
