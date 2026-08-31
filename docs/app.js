@@ -158,59 +158,225 @@ const activeMethods = () => METHODS.filter(m => state.methods.has(m.key));
 function frame(sel, w, h) {
   const host = d3.select(sel);
   host.selectAll("*").remove();
-  return host.append("svg")
+  const svg = host.append("svg")
     .attr("viewBox", `0 0 ${w} ${h}`)
     .attr("width", "100%")
     .style("height", "auto")
     .style("overflow", "visible");
+  addDownloadButtons(host, svg, sel.replace("#", ""));
+  return svg;
 }
 
-/* Every axis in the site is the same weight and colour; doing it once at the
-   end of a draw beats threading the same four attributes through each call. */
+/* ---- figure download ------------------------------------------------------
+   KaTeX labels live in foreignObject, which is HTML rather than SVG: a saved
+   file loses the stylesheet, and canvas refuses to rasterise it at all. So the
+   export swaps each one for a plain <text> with a Unicode rendering of the same
+   label. On screen you keep the typeset version; in the file you get something
+   that opens anywhere. */
+
+const TEX_SYM = {
+  "\\mu": "μ", "\\epsilon": "ε", "\\beta": "β", "\\lambda": "λ", "\\top": "⊤"
+};
+const SUBDIG = { 0: "₀", 1: "₁", 2: "₂", 3: "₃", 4: "₄",
+                 5: "₅", 6: "₆", 7: "₇", 8: "₈", 9: "₉" };
+
+function texToUnicode(src) {
+  let s = src;
+  s = s.replace(/\\text\{([^}]*)\}/g, "$1");
+  s = s.replace(/\\[;,!]/g, " ");
+  Object.keys(TEX_SYM).forEach(k => { s = s.split(k).join(TEX_SYM[k]); });
+  let prev;
+  do { prev = s; s = s.replace(/_\{([^{}]*)\}/, "_$1"); } while (s !== prev);
+  s = s.replace(/_([0-9])/g, (_, d) => SUBDIG[d]);
+  return s.replace(/[{}$\\]/g, "").replace(/\s+/g, " ").trim();
+}
+
+function svgString(node, opts = {}) {
+  const NS = "http://www.w3.org/2000/svg";
+  const clone = node.cloneNode(true);
+
+  if (!opts.keepMath) {
+    clone.querySelectorAll("foreignObject[data-tex]").forEach(fo => {
+      const t = document.createElementNS(NS, "text");
+      t.setAttribute("transform", fo.getAttribute("transform") || "");
+      t.setAttribute("text-anchor", fo.getAttribute("data-anchor") || "middle");
+      t.setAttribute("dominant-baseline", "middle");
+      t.setAttribute("font-size", 11);
+      t.setAttribute("font-family", "Georgia, serif");
+      t.setAttribute("fill", MUTED);
+      t.textContent = texToUnicode(fo.getAttribute("data-tex"));
+      fo.parentNode.replaceChild(t, fo);
+    });
+  }
+  // ... rest of the function unchanged
+
+  const vb = (clone.getAttribute("viewBox") || "0 0 640 470").split(/\s+/).map(Number);
+  clone.setAttribute("xmlns", NS);
+  clone.setAttribute("width", vb[2]);
+  clone.setAttribute("height", vb[3]);
+
+  // Transparent PNGs are a nuisance to place in a document.
+  const bg = document.createElementNS(NS, "rect");
+  bg.setAttribute("x", vb[0]); bg.setAttribute("y", vb[1]);
+  bg.setAttribute("width", vb[2]); bg.setAttribute("height", vb[3]);
+  bg.setAttribute("fill", "#ffffff");
+  const BGS = new Set([PAPER, PANEL, "#f5f1e7", "#f6f3ec", "#fdfcf9"]
+    .map(c => c.toLowerCase()));
+  clone.querySelectorAll("rect").forEach(el => {
+    const f = (el.getAttribute("fill") || "").toLowerCase();
+    if (BGS.has(f)) el.setAttribute("fill", "#ffffff");
+  });
+  clone.insertBefore(bg, clone.firstChild);
+
+  return { text: new XMLSerializer().serializeToString(clone), w: vb[2], h: vb[3] };
+}
+
+function saveBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/* PDF by printing rather than converting: the browser already renders this
+   figure correctly, including the KaTeX labels, and its PDF output is vector.
+   A JS converter would have to embed fonts itself and would mangle the Greek. */
+function printPdf(svg, id) {
+  const { text, w, h } = svgString(svg.node(), { keepMath: true });
+  const win = window.open("", "_blank");
+  if (!win) {
+    alert("Allow pop-ups for this site to export PDF.");
+    return;
+  }
+  win.document.write(
+    `<!doctype html><html><head><meta charset="utf-8">` +
+    `<title>${figureName(id)}</title>` +
+    `<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">` +
+    `<style>` +
+    `@page { size: ${(w / 96).toFixed(3)}in ${(h / 96).toFixed(3)}in; margin: 0; }` +
+    `html, body { margin: 0; padding: 0; background: #fff; ` +
+    `-webkit-print-color-adjust: exact; print-color-adjust: exact; }` +
+    `svg { display: block; width: ${w}px; height: ${h}px; }` +
+    `</style></head><body>${text}</body></html>`
+  );
+  win.document.close();
+
+  // Give the stylesheet and its web fonts a moment, or the math prints unstyled.
+  const go = () => { win.focus(); win.print(); };
+  if (win.document.fonts && win.document.fonts.ready) {
+    win.document.fonts.ready.then(() => setTimeout(go, 250));
+  } else {
+    setTimeout(go, 800);
+  }
+}
+
+/* Name files after the cell they came from, so a folder of exports is still
+   readable in a month. */
+function figureName(id) {
+  const pct = meta.pct[state.iPct];
+  const eps = meta.eps_slug[state.iEps];
+  return `${id}-${pct}pct-eps${eps}-rep${meta.sim[state.iSim]}`;
+}
+
+function addDownloadButtons(host, svg, id) {
+  const bar = host.append("div").attr("class", "dl");
+
+  bar.append("button").attr("type", "button").text("SVG")
+    .on("click", () => {
+      const { text } = svgString(svg.node());
+      saveBlob(new Blob([text], { type: "image/svg+xml;charset=utf-8" }),
+               `${figureName(id)}.svg`);
+    });
+
+  bar.append("button").attr("type", "button").text("PNG")
+    .on("click", () => {
+      const { text, w, h } = svgString(svg.node());
+      const scale = 3;                       // 3× so it holds up in print
+      const img = new Image();
+      img.onload = () => {
+        const c = document.createElement("canvas");
+        c.width = w * scale; c.height = h * scale;
+        const ctx = c.getContext("2d");
+        ctx.scale(scale, scale);
+        ctx.drawImage(img, 0, 0);
+        c.toBlob(b => saveBlob(b, `${figureName(id)}.png`), "image/png");
+      };
+      img.src = "data:image/svg+xml;base64," +
+                btoa(unescape(encodeURIComponent(text)));
+    });
+    
+  bar.append("button").attr("type", "button").text("PDF")
+    .on("click", () => printPdf(svg, id));
+}
+
+/* LaTeX to native SVG paths. Nothing here depends on a font being installed,
+   so the same output works on screen, in a downloaded SVG, and after
+   rsvg_pdf. EX converts MathJax's ex units to our pixel sizes. */
+function mathSvg(tex, px, colour) {
+  if (!window.MathJax || !MathJax.tex2svg) return null;
+  const out = MathJax.tex2svg(tex, { display: false });
+  const node = out.querySelector("svg");
+  if (!node) return null;
+
+  const EX = px * 0.45;
+  const w = parseFloat(node.getAttribute("width")) * EX;
+  const h = parseFloat(node.getAttribute("height")) * EX;
+  node.setAttribute("width", w);
+  node.setAttribute("height", h);
+  node.removeAttribute("style");
+  node.setAttribute("fill", colour);
+  node.querySelectorAll('[fill="currentColor"]').forEach(el =>
+    el.setAttribute("fill", colour));
+  return { node, w, h };
+}
+
 function styleAxes(svg) {
   svg.selectAll(".domain, .tick line").attr("stroke", AXIS);
   svg.selectAll(".tick text")
     .attr("fill", MUTED)
-    .attr("font-size", 10)
-    .attr("font-family", "KaTeX_Main, Georgia, serif");
+    .attr("font-size", 10);
+  mathTicks(svg);
   return svg;
+}
+
+/* Tick labels through the same path, so digits match the labels and survive
+   export. Position comes from the text's own box rather than per-axis rules. */
+function mathTicks(svg) {
+  svg.selectAll(".tick text").each(function () {
+    const raw = this.textContent.replace(/,/g, "").replace(/−/g, "-").trim();
+    if (!raw) return;
+    let box;
+    try { box = this.getBBox(); } catch (e) { return; }
+    const m = mathSvg(raw, 10, MUTED);
+    if (!m) return;
+    m.node.setAttribute("x", box.x + box.width / 2 - m.w / 2);
+    m.node.setAttribute("y", box.y + box.height / 2 - m.h / 2);
+    this.parentNode.appendChild(m.node);
+    this.remove();
+  });
 }
 
 function axisLabel(g, x, y, text, anchor = "middle", rotate = 0) {
   const isTex = text.startsWith("$") && text.endsWith("$") && text.length > 2;
+  const m = isTex ? mathSvg(text.slice(1, -1), 11, MUTED) : null;
 
-  if (!isTex || typeof katex === "undefined") {
+  if (!m) {
     g.append("text")
       .attr("transform", `translate(${x},${y}) rotate(${rotate})`)
       .attr("text-anchor", anchor)
       .attr("font-size", 11)
       .attr("fill", MUTED)
-      .text(text);
+      .text(isTex ? text.slice(1, -1) : text);
     return;
   }
 
-  /* SVG <text> can't hold markup, so KaTeX output goes in a foreignObject:
-     a window of ordinary HTML inside the drawing. Box is oversized and the
-     content centred, so the label lands on (x, y) whatever its width. */
-  const BW = 260, BH = 28;
-  const justify = anchor === "end" ? "flex-end"
-                : anchor === "start" ? "flex-start" : "center";
-
-  const div = g.append("foreignObject")
-    .attr("width", BW).attr("height", BH)
-    .attr("x", -BW / 2).attr("y", -BH / 2)
+  const dx = anchor === "end" ? -m.w : anchor === "start" ? 0 : -m.w / 2;
+  m.node.setAttribute("x", dx);
+  m.node.setAttribute("y", -m.h / 2);
+  g.append("g")
     .attr("transform", `translate(${x},${y}) rotate(${rotate})`)
-    .style("overflow", "visible")
-    .style("pointer-events", "none")
-    .append("xhtml:div")
-      .style("width", `${BW}px`).style("height", `${BH}px`)
-      .style("display", "flex")
-      .style("align-items", "center")
-      .style("justify-content", justify)
-      .style("font-size", "11px")
-      .style("color", MUTED);
-
-  katex.render(text.slice(1, -1), div.node(), { throwOnError: false });
+    .node().appendChild(m.node);
 }
 
 function pad(extent, frac = 0.05) {

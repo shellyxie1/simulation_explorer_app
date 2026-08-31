@@ -167,6 +167,28 @@ nav.views {
 .right h2:not(:first-child) { margin-top: 4px; }
 
 .figure svg { display: block; width: 100%; height: auto; overflow: visible; }
+.figure { position: relative; }
+.dl {
+  position: absolute;
+  top: 0; right: 0;
+  display: flex; gap: 0;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.figure:hover .dl, .dl:focus-within { opacity: 1; }
+.dl button {
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 11px;
+  background: var(--paper);
+  color: var(--muted);
+  border: 1px solid var(--rule);
+  border-right-width: 0;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.dl button:last-child { border-right-width: 1px; }
+.dl button:hover { color: var(--ink); border-color: var(--ink); }
 
 .readout {
   font-size: 14px;
