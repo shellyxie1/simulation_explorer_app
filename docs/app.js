@@ -46,6 +46,9 @@ const f1 = d3.format(".1f");
 
 /* ---- state ---------------------------------------------------------------- */
 const state = {
+  trim: true,
+  epsLo: 0,
+  epsHi: 10,
   view: "sample",
   iPct: 0,
   iEps: 0,
@@ -652,6 +655,9 @@ function drawRidges() {
     { key: "b1", label: "β̂₁", truth: meta.beta_true.b1 }
   ];
   const s = slot(state.iPct, state.iEps, state.iSim);
+  const eLo = state.epsLo, eHi = state.epsHi;
+  const rows = d3.range(eLo, eHi + 1);
+  const nRows = rows.length;
 
   params.forEach((p, fi) => {
     const m = { l: fi === 0 ? 46 : 30, r: 12, t: 26, b: 38 };
@@ -659,8 +665,7 @@ function drawRidges() {
     const g = svg.append("g").attr("transform", `translate(${x0},0)`);
 
     const runs = [];
-    for (let e = 0; e < nEps; e++)
-      shown.forEach(mm => runs.push(coefRun(mm.key, p.key, state.iPct, e)));
+    rows.forEach(e => shown.forEach(mm => runs.push(coefRun(mm.key, p.key, state.iPct, e))));
     const pooled = runs.flat();
 
     // Contamination sends a few OLS fits a long way out; trimming keeps the
@@ -673,21 +678,22 @@ function drawRidges() {
     const grid = d3.range(200).map(i => dom[0] + (dom[1] - dom[0]) * i / 199);
 
     const RIDGE = 1.8;                       // ridge height, in row heights
-    const rowH = (H - m.t - m.b) / (nEps + RIDGE - 0.5);
-    const rowY = e => H - m.b - (e + 0.5) * rowH;
+    const rowH = (H - m.t - m.b) / (nRows + RIDGE - 0.5);
+    const rowY = e => H - m.b - ((e - eLo) + 0.5) * rowH;
 
     // One density per (eps, method), scaled against the tallest in the facet so
     // the ridges share a vertical unit -- ggridges' default, and the reason a
     // flat ridge reads as "spread out" rather than "different scale".
     const dens = [];
     let top = 0;
-    for (let e = 0; e < nEps; e++) {
+    rows.forEach(e => {
       shown.forEach(mm => {
         const z = kde(coefRun(mm.key, p.key, state.iPct, e), grid);
         top = Math.max(top, d3.max(z));
         dens.push({ e, mm, z });
       });
-    }
+    });
+    
     const ridge = rowH * RIDGE;
     const ys = z => (top > 0 ? (z / top) * ridge : 0);
 
@@ -696,25 +702,18 @@ function drawRidges() {
       .attr("width", facetW - m.r - m.l).attr("height", H - m.b - m.t)
       .attr("fill", PAPER).attr("stroke", RULE);
 
-    // Band the selected row so the sampling distribution the other views are
-    // drawn from is identifiable at a glance.
-    g.append("rect")
-      .attr("x", m.l).attr("y", rowY(state.iEps) - rowH / 2)
-      .attr("width", facetW - m.r - m.l).attr("height", rowH)
-      .attr("fill", PANEL);
-
     const clip = `clip-ridge-${fi}`;
     g.append("clipPath").attr("id", clip).append("rect")
       .attr("x", m.l).attr("y", m.t)
       .attr("width", facetW - m.r - m.l).attr("height", H - m.b - m.t);
     const plot = g.append("g").attr("clip-path", `url(#${clip})`);
 
-    for (let e = 0; e < nEps; e++) {
+    rows.forEach(e => {
       plot.append("line")
         .attr("x1", m.l).attr("x2", facetW - m.r)
         .attr("y1", rowY(e)).attr("y2", rowY(e))
         .attr("stroke", RULE).attr("stroke-width", 0.7);
-    }
+    });
 
     plot.append("line")
       .attr("x1", xs(p.truth)).attr("x2", xs(p.truth))
@@ -746,17 +745,6 @@ function drawRidges() {
         .attr("stroke", mm.colour).attr("stroke-width", 1.2);
     });
 
-    // The selected replicate, on the selected row: the same number the strip
-    // plot in the sample view shows as a filled dot.
-    shown.forEach(mm => {
-      const v = coefs[mm.key][p.key][s];
-      plot.append("line")
-        .attr("x1", xs(v)).attr("x2", xs(v))
-        .attr("y1", rowY(state.iEps) - rowH * 0.42)
-        .attr("y2", rowY(state.iEps) + rowH * 0.42)
-        .attr("stroke", mm.colour).attr("stroke-width", 2);
-    });
-
     g.append("g").attr("transform", `translate(0,${H - m.b})`)
       .call(d3.axisBottom(xs).ticks(5).tickSize(4));
     if (fi === 0) {
@@ -764,11 +752,11 @@ function drawRidges() {
         .attr("x1", m.l).attr("x2", m.l)
         .attr("y1", m.t).attr("y2", H - m.b)
         .attr("stroke", AXIS);
-      g.append("g").selectAll("text").data(d3.range(nEps)).join("text")
+      g.append("g").selectAll("text").data(rows).join("text")
         .attr("x", m.l - 8).attr("y", e => rowY(e) + 3.5)
         .attr("text-anchor", "end")
         .attr("font-size", 10).attr("font-family", "ui-monospace, Menlo, monospace")
-        .attr("fill", e => e === state.iEps ? INK : MUTED)
+        .attr("fill", MUTED)
         .text(e => meta.eps[e]);
       axisLabel(g, 13, H / 2, "$\\mu_{\\epsilon_{\\text{out}}}$", "middle", -90);
     }
@@ -1457,6 +1445,25 @@ function buildKnobs() {
     .attr("max", nSim - 1).property("value", state.iSim)
     .on("input", function () { state.iSim = +this.value; render(); });
 
+  /* Two ends over the eps grid. Each pushes the other rather than crossing it,
+     so the range is always valid without a second guard at draw time. */
+  const setEnd = (which, v) => {
+    if (which === "epsLo") {
+      state.epsLo = v;
+      if (state.epsHi < v) state.epsHi = v;
+    } else {
+      state.epsHi = v;
+      if (state.epsLo > v) state.epsLo = v;
+    }
+    render();
+  };
+  d3.select("#epsLoRange").attr("max", nEps - 1).property("value", state.epsLo)
+    .on("input", function () { setEnd("epsLo", +this.value); });
+  d3.select("#epsHiRange").attr("max", nEps - 1).property("value", state.epsHi)
+    .on("input", function () { setEnd("epsHi", +this.value); });
+
+  // Per-view knobs, rebuilt on each render so their state always matches.
+
   // Per-view knobs, rebuilt on each render so their state always matches.
   const sk = d3.select("#sampleKnobs"); sk.selectAll("*").remove();
   sk.append("span").attr("class", "ctl").append("span").attr("class", "lbl").text("fits shown");
@@ -1467,6 +1474,7 @@ function buildKnobs() {
   ek.append("span").attr("class", "ctl").append("span").attr("class", "lbl").text("methods");
   ek.append("span").attr("id", "estLegend");
   methodLegend("#estLegend");
+
   checkbox(ek, "trim the outer 1% of estimates", () => state.trim, v => state.trim = v);
 
   const wk = d3.select("#weightsKnobs"); wk.selectAll("*").remove();
@@ -1495,6 +1503,29 @@ function syncKnobs() {
   const e = meta.eps[state.iEps];
   d3.select("#epsVal").text(e > 0 ? `+${fg(e)}` : fg(e));
   d3.select("#simVal").text(`${meta.sim[state.iSim]} / ${nSim}`);
+
+  /* The three global knobs are not all meaningful on every view: the density
+     view pools replicates and spans a range of eps, so it gets the range ends
+     and neither single-value slider. */
+  const onEst = state.view === "estimates";
+  d3.select("#simRange").node().parentNode.style.display = onEst ? "none" : "";
+  d3.select("#epsRange").node().parentNode.style.display = onEst ? "none" : "";
+  d3.select("#epsRangeCtl").style("display", onEst ? "" : "none");
+
+  d3.select("#epsLoRange").property("value", state.epsLo);
+  d3.select("#epsHiRange").property("value", state.epsHi);
+
+  /* Fill the selected span, and lift whichever thumb is nearer the far end so
+     the two are still separable when they meet. */
+  const pc = i => (nEps > 1 ? (i / (nEps - 1)) * 100 : 0);
+  d3.select("#epsFill")
+    .style("left", `${pc(state.epsLo)}%`)
+    .style("width", `${pc(state.epsHi) - pc(state.epsLo)}%`);
+  d3.select("#epsLoRange").style("z-index", state.epsLo > (nEps - 1) / 2 ? 2 : 1);
+  d3.select("#epsHiRange").style("z-index", state.epsLo > (nEps - 1) / 2 ? 1 : 2);
+
+  d3.select("#epsRangeVal")
+    .text(`${fg(meta.eps[state.epsLo])} … ${fg(meta.eps[state.epsHi])}`);
   d3.select("#llWindowVal").text(state.llWindow);
   d3.selectAll(".legend .item")
     .classed("on", d => state.methods.has(d.key))
@@ -1600,6 +1631,8 @@ function prefetch() {
   // grid, otherwise the middle of the sweep.
   const zero = meta.eps.indexOf(0);
   state.iEps = zero >= 0 ? zero : Math.floor(nEps / 2);
+  state.epsLo = 0;
+  state.epsHi = nEps - 1;
 
   readHash();
   buildKnobs();

@@ -52,6 +52,16 @@ window.MathJax = {
     <input type="range" id="epsRange" min="0" max="10" step="1">
     <span class="val" id="epsVal"></span>
   </label>
+  <label class="ctl" id="epsRangeCtl">
+    <span class="lbl">$\mu_{\epsilon_{\text{out}}}$ range</span>
+    <span class="dual">
+      <span class="dual-track"></span>
+      <span class="dual-fill" id="epsFill"></span>
+      <input type="range" id="epsLoRange" min="0" max="10" step="1">
+      <input type="range" id="epsHiRange" min="0" max="10" step="1">
+    </span>
+    <span class="val" id="epsRangeVal"></span>
+  </label>
   <label class="ctl">
     <span class="lbl">replicate</span>
     <input type="range" id="simRange" min="0" max="49" step="1">
@@ -100,9 +110,7 @@ window.MathJax = {
     <p class="caption">
       Each ridge is a kernel density over the 50 replicates at one contamination
       mean. The dashed rule is the true value and the row for the current
-      <span class="mono">&mu;<sub>&epsilon;<sub>out</sub></sub> is banded. The
-      tick on it marks the replicate selected above &mdash; the same fit drawn in
-      the previous view.
+      <span class="mono">$\mu_{\epsilon_{\text{out}}}$</span> is banded.
     </p>
   </section>
 

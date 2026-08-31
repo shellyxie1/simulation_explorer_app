@@ -110,6 +110,33 @@ nav.views {
 
 .knobs input[type=range] { width: 220px; accent-color: var(--clay); }
 .knobs input[type=checkbox] { accent-color: var(--clay); }
+/* One track, two thumbs: two stacked range inputs with their own tracks
+   hidden. pointer-events is off on the input and back on for the thumb, so
+   clicks reach whichever thumb is under the cursor rather than the top input. */
+.dual { position: relative; display: inline-block; width: 220px; height: 20px; }
+.dual-track, .dual-fill {
+  position: absolute; top: 9px; height: 3px; border-radius: 2px;
+}
+.dual-track { left: 0; right: 0; background: var(--rule); }
+.dual-fill { background: var(--clay); }
+.dual input[type=range] {
+  position: absolute; left: 0; top: 0;
+  width: 100% !important; height: 20px; margin: 0;
+  background: none; pointer-events: none;
+  -webkit-appearance: none; appearance: none;
+}
+.dual input[type=range]:focus { outline: none; }
+.dual input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; pointer-events: auto;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--paper); border: 2px solid var(--clay); cursor: pointer;
+}
+.dual input[type=range]::-moz-range-thumb {
+  pointer-events: auto;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--paper); border: 2px solid var(--clay); cursor: pointer;
+}
+.dual input[type=range]::-moz-range-track { background: none; border: none; }
 
 /* A method toggle is a legend entry that happens to be clickable, so it carries
    its own swatch rather than a checkbox. */
