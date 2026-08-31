@@ -333,8 +333,19 @@ function mathSvg(tex, px, colour) {
     el.setAttribute("fill", colour));
   return { node, w, h };
 }
+/* Target text sizes, in real screen pixels. Taken from the likelihood surface,
+   which is the panel the rest are matched to. */
+const TICK_PX = 13;
+const LABEL_PX = 20;
 
-function styleAxes(svg, px = 12) {
+function unitOf(node) {
+  const el = node.node ? node.node() : node;
+  const svg = el.ownerSVGElement || el;
+  return +svg.getAttribute("data-unit") || 1;
+}
+
+function styleAxes(svg) {
+  const px = TICK_PX * unitOf(svg);
   svg.selectAll(".domain, .tick line").attr("stroke", AXIS);
   svg.selectAll(".tick text")
     .attr("fill", MUTED)
@@ -360,7 +371,8 @@ function mathTicks(svg, px = 12) {
   });
 }
 
-function axisLabel(g, x, y, text, anchor = "middle", rotate = 0, px = 18) {
+function axisLabel(g, x, y, text, anchor = "middle", rotate = 0) {
+  const px = LABEL_PX * unitOf(g);
   const isTex = text.startsWith("$") && text.endsWith("$") && text.length > 2;
   const m = isTex ? mathSvg(text.slice(1, -1), px, MUTED) : null;
 
@@ -639,7 +651,7 @@ function renderEstimates() {
 }
 
 function drawRidges() {
-  const W = 780, H = 580, gutter = 34;
+  const W = 850, H = 580, gutter = 34;
   const facetW = (W - gutter) / 2;
   const svg = frame("#ridges", W, H);
   const shown = activeMethods();
@@ -699,7 +711,7 @@ function drawRidges() {
   }
 
   params.forEach((p, fi) => {
-    const m = { l: fi === 0 ? 46 : 30, r: 12, t: 26, b: 38 };
+    const m = { l: fi === 0 ? 46 : 30, r: 12, t: 26, b: 58 };
     const x0 = fi * (facetW + gutter);
     const g = svg.append("g").attr("transform", `translate(${x0},0)`);
 
@@ -790,6 +802,10 @@ function drawRidges() {
 
     g.append("g").attr("transform", `translate(0,${H - m.b})`)
       .call(d3.axisBottom(xs).ticks(5).tickSize(4));
+
+    axisLabel(g, (m.l + facetW - m.r) / 2, H - 14,
+              p.key === "b0" ? "$\\beta_0$" : "$\\beta_1$");
+
     if (fi === 0) {
       g.append("line")
         .attr("x1", m.l).attr("x2", m.l)
@@ -798,7 +814,8 @@ function drawRidges() {
       g.append("g").selectAll("text").data(rows).join("text")
         .attr("x", m.l - 8).attr("y", e => rowY(e) + 3.5)
         .attr("text-anchor", "end")
-        .attr("font-size", 16).attr("font-family", "ui-monospace, Menlo, monospace")
+        .attr("font-size", TICK_PX * unitOf(svg))
+        .attr("font-family", "ui-monospace, Menlo, monospace")
         .attr("fill", MUTED)
         .text(e => meta.eps[e]);
       axisLabel(g, 13, H / 2, "$\\mu_{\\epsilon_{\\text{out}}}$", "middle", -90, 22);
@@ -841,7 +858,7 @@ function drawRidges() {
       .on("pointerleave", () => { applyHover(null); ridgeReadout(null); });
   });
 
-  styleAxes(svg, 16);
+  styleAxes(svg);
 }
 
 /* Bias and RMSE across the sweep, one small panel each per coefficient, in the
@@ -952,7 +969,7 @@ function renderWeights(rec) {
 
 function drawIndexPanel(sel, rec, values, opt) {
   const { W, H, rule, ruleLabel, log, big } = opt;
-  const m = { l: big ? 60 : 56, r: 14, t: 12, b: big ? 42 : 32 };
+  const m = { l: big ? 60 : 56, r: 14, t: 12, b: big ? 54 : 32 };
   const svg = frame(sel, W, H);
   const xs = d3.scaleLinear([1, nObs], [m.l, W - m.r]);
 
@@ -972,7 +989,7 @@ function drawIndexPanel(sel, rec, values, opt) {
     .call(log
       ? d3.axisLeft(ys).ticks(4, "0.0e").tickSize(4)
       : d3.axisLeft(ys).ticks(big ? 6 : 4).tickSize(4).tickFormat(d3.format(".3~g")));
-  if (big) axisLabel(svg, (m.l + W - m.r) / 2, H - 8, "Observation index");
+  if (big) axisLabel(svg, (m.l + W - m.r) / 2, H - 4, "Observation index");
 
   const clip = `clip${sel.replace("#", "")}`;
   svg.append("clipPath").attr("id", clip).append("rect")
