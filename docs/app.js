@@ -18,24 +18,24 @@ const d3 = window.d3;
 const PAPER = "#fdfcf9";
 const PANEL = "#f2eee5";
 const INK   = "#1f1d1a";
-const MUTED = "#7b746a";
-const RULE  = "#ddd7cb";
-const AXIS  = "#c2bbae";
+const MUTED = "#1f1d1a";
+const RULE  = "#1f1d1a";
+const AXIS  = "#1f1d1a";
 const CLAY  = "#b8452f";
-const CALM  = "#93a7b3";   // ordinary observations
+const CALM  = "#1f1d1a";   // ordinary observations
 
 const METHODS = [
-  { key: "OLS",      label: "OLS",      colour: "#3d4a54" },
-  { key: "gel_bias", label: "gel_bias", colour: "#2c6e8f" },
-  { key: "gel",      label: "gel",      colour: "#7a5c9e" }
+  { key: "OLS",      label: "OLS",       colour: "#1f6fb4" },
+  { key: "gel_bias", label: "ETEL_bias", colour: "#1a8f6a" },
+  { key: "gel",      label: "ETEL",      colour: "#7b3fa0" }
 ];
 const GEL_METHODS = METHODS.filter(m => m.key !== "OLS");
 
 const VIEWS = [
-  { key: "sample",     label: "one sample" },
-  { key: "estimates",  label: "sampling distributions" },
-  { key: "weights",    label: "weights" },
-  { key: "likelihood", label: "likelihood surface" }
+  { key: "sample",     label: "Simulated data" },
+  { key: "estimates",  label: "Density of the estimates" },
+  { key: "weights",    label: "Inner products and Implied probabilities" },
+  { key: "likelihood", label: "Likelihood surface" }
 ];
 
 const f2 = d3.format(".2f");
@@ -172,17 +172,45 @@ function styleAxes(svg) {
   svg.selectAll(".tick text")
     .attr("fill", MUTED)
     .attr("font-size", 10)
-    .attr("font-family", "ui-monospace, Menlo, monospace");
+    .attr("font-family", "KaTeX_Main, Georgia, serif");
   return svg;
 }
 
 function axisLabel(g, x, y, text, anchor = "middle", rotate = 0) {
-  g.append("text")
+  const isTex = text.startsWith("$") && text.endsWith("$") && text.length > 2;
+
+  if (!isTex || typeof katex === "undefined") {
+    g.append("text")
+      .attr("transform", `translate(${x},${y}) rotate(${rotate})`)
+      .attr("text-anchor", anchor)
+      .attr("font-size", 11)
+      .attr("fill", MUTED)
+      .text(text);
+    return;
+  }
+
+  /* SVG <text> can't hold markup, so KaTeX output goes in a foreignObject:
+     a window of ordinary HTML inside the drawing. Box is oversized and the
+     content centred, so the label lands on (x, y) whatever its width. */
+  const BW = 260, BH = 28;
+  const justify = anchor === "end" ? "flex-end"
+                : anchor === "start" ? "flex-start" : "center";
+
+  const div = g.append("foreignObject")
+    .attr("width", BW).attr("height", BH)
+    .attr("x", -BW / 2).attr("y", -BH / 2)
     .attr("transform", `translate(${x},${y}) rotate(${rotate})`)
-    .attr("text-anchor", anchor)
-    .attr("font-size", 11)
-    .attr("fill", MUTED)
-    .text(text);
+    .style("overflow", "visible")
+    .style("pointer-events", "none")
+    .append("xhtml:div")
+      .style("width", `${BW}px`).style("height", `${BH}px`)
+      .style("display", "flex")
+      .style("align-items", "center")
+      .style("justify-content", justify)
+      .style("font-size", "11px")
+      .style("color", MUTED);
+
+  katex.render(text.slice(1, -1), div.node(), { throwOnError: false });
 }
 
 function pad(extent, frac = 0.05) {
@@ -263,8 +291,8 @@ function drawSampleScatter(rec) {
     .call(d3.axisBottom(xs).ticks(7).tickSize(4));
   svg.append("g").attr("transform", `translate(${m.l},0)`)
     .call(d3.axisLeft(ys).ticks(7).tickSize(4));
-  axisLabel(svg, (m.l + W - m.r) / 2, H - 8, "x");
-  axisLabel(svg, 15, (m.t + H - m.b) / 2, "y", "middle", -90);
+  axisLabel(svg, (m.l + W - m.r) / 2, H - 8, "$x$");
+  axisLabel(svg, 15, (m.t + H - m.b) / 2, "$y$", "middle", -90);
 
   const clip = "clip-sample";
   svg.append("clipPath").attr("id", clip).append("rect")
@@ -288,7 +316,7 @@ function drawSampleScatter(rec) {
   plot.append("g").selectAll("circle")
     .data(idx.filter(i => !rec.outlier[i])).join("circle")
     .attr("cx", i => xs(rec.x[i])).attr("cy", i => ys(rec.y[i]))
-    .attr("r", 2.7).attr("fill", CALM).attr("fill-opacity", 0.75);
+    .attr("r", 2.7).attr("fill", CALM).attr("fill-opacity", 0.85);
   plot.append("g").selectAll("circle")
     .data(idx.filter(i => rec.outlier[i])).join("circle")
     .attr("cx", i => xs(rec.x[i])).attr("cy", i => ys(rec.y[i]))
@@ -353,7 +381,7 @@ function drawSampleCoefs(rec) {
       g.append("g").selectAll("line").data(runs[k]).join("line")
         .attr("x1", v => xs(v)).attr("x2", v => xs(v))
         .attr("y1", cy - 5).attr("y2", cy + 5)
-        .attr("stroke", mm.colour).attr("stroke-opacity", 0.28);
+        .attr("stroke", mm.colour).attr("stroke-opacity", 0.38);
       g.append("circle")
         .attr("cx", xs(coefs[mm.key][p.key][s])).attr("cy", cy)
         .attr("r", 3.6).attr("fill", mm.colour);
@@ -390,7 +418,7 @@ function drawSampleResid(rec) {
     .call(d3.axisBottom(xs).ticks(6).tickSize(4));
   svg.append("g").attr("transform", `translate(${m.l},0)`)
     .call(d3.axisLeft(ys).ticks(4).tickSize(4));
-  axisLabel(svg, (m.l + W - m.r) / 2, H - 6, "y − (β₀ + β₁x)");
+  axisLabel(svg, (m.l + W - m.r) / 2, H - 6, "$y - (\\beta_0 + \\beta_1 x)$");
 
   const bars = (data, fill, opacity) =>
     svg.append("g").selectAll("rect").data(data.filter(b => b.length)).join("rect")
@@ -402,8 +430,8 @@ function drawSampleResid(rec) {
       .attr("height", b => ys(0) - ys(Math.min(b.length, top)))
       .attr("fill", fill).attr("fill-opacity", opacity);
 
-  bars(normal, CALM, 0.85);
-  bars(outs, CLAY, 0.9);
+  bars(normal, CALM, 0.92);
+  bars(outs, CLAY, 1);
   styleAxes(svg);
 }
 
@@ -544,7 +572,7 @@ function drawRidges() {
       const row = plot.append("g").attr("transform", `translate(0,${rowY(e)})`);
       row.append("path").datum(z)
         .attr("d", area)
-        .attr("fill", mm.colour).attr("fill-opacity", 0.14)
+        .attr("fill", mm.colour).attr("fill-opacity", 0.20)
         .attr("stroke", "none");
       row.append("path").datum(z)
         .attr("d", outline)
@@ -576,7 +604,7 @@ function drawRidges() {
         .attr("font-size", 10).attr("font-family", "ui-monospace, Menlo, monospace")
         .attr("fill", e => e === state.iEps ? INK : MUTED)
         .text(e => meta.eps[e]);
-      axisLabel(g, 13, H / 2, "ε̄_out", "middle", -90);
+      axisLabel(g, 13, H / 2, "$\\mu_{\\epsilon_{\\text{out}}}$", "middle", -90);
     }
     g.append("text")
       .attr("x", m.l).attr("y", 14)
@@ -680,10 +708,11 @@ function renderWeights(rec) {
     W: 640, H: 470, rule: 0, ruleLabel: "0", log: false, big: true
   }));
   marks.push(drawIndexPanel("#ptPlot", rec, pt, {
-    W: 420, H: 214, rule: 1 / nObs, ruleLabel: "1/N",
-    log: state.logWeights, big: false
+    W: 640, H: 470, rule: 1 / nObs, ruleLabel: "1/N",
+    log: state.logWeights, big: true
   }));
   marks.push(drawWeightResid(rec, pt, res));
+  marks.push(drawWeightLorenz(rec, pt));
 
   hoverHandlers.push(i => {
     marks.forEach(fn => fn(i));
@@ -714,7 +743,7 @@ function drawIndexPanel(sel, rec, values, opt) {
     .call(log
       ? d3.axisLeft(ys).ticks(4, "0.0e").tickSize(4)
       : d3.axisLeft(ys).ticks(big ? 6 : 4).tickSize(4).tickFormat(d3.format(".3~g")));
-  if (big) axisLabel(svg, (m.l + W - m.r) / 2, H - 8, "observation index");
+  if (big) axisLabel(svg, (m.l + W - m.r) / 2, H - 8, "Observation index");
 
   const clip = `clip${sel.replace("#", "")}`;
   svg.append("clipPath").attr("id", clip).append("rect")
@@ -726,7 +755,7 @@ function drawIndexPanel(sel, rec, values, opt) {
     plot.append("line")
       .attr("x1", m.l).attr("x2", W - m.r)
       .attr("y1", ys(rule)).attr("y2", ys(rule))
-      .attr("stroke", MUTED).attr("stroke-dasharray", "4 3");
+      .attr("stroke", MUTED).attr("stroke-dasharray", "4 3").attr("stroke-width", 2);
     plot.append("text")
       .attr("x", W - m.r - 5).attr("y", ys(rule) - 5)
       .attr("text-anchor", "end").attr("font-size", 10).attr("fill", MUTED)
@@ -739,11 +768,11 @@ function drawIndexPanel(sel, rec, values, opt) {
   plot.append("g").selectAll("circle")
     .data(idx.filter(i => !rec.outlier[i])).join("circle")
     .attr("cx", i => xs(i + 1)).attr("cy", i => ys(values[i]))
-    .attr("r", r).attr("fill", CALM).attr("fill-opacity", 0.7);
+    .attr("r", r).attr("fill", CALM).attr("fill-opacity", 0.82);
   plot.append("g").selectAll("circle")
     .data(idx.filter(i => rec.outlier[i])).join("circle")
     .attr("cx", i => xs(i + 1)).attr("cy", i => ys(values[i]))
-    .attr("r", r + 1.4).attr("fill", CLAY).attr("fill-opacity", 0.9);
+    .attr("r", r + 1.4).attr("fill", CLAY).attr("fill-opacity", 1);
 
   const ring = hoverRing(plot);
   const finder = d3.Delaunay.from(idx, i => xs(i + 1), i => ys(values[i]));
@@ -762,7 +791,7 @@ function drawIndexPanel(sel, rec, values, opt) {
 }
 
 function drawWeightResid(rec, pt, res) {
-  const W = 420, H = 214, m = { l: 56, r: 14, t: 12, b: 34 };
+  const W = 640, H = 470, m = { l: 60, r: 14, t: 12, b: 42 };
   const svg = frame("#ptResid", W, H);
   const xs = d3.scaleLinear(pad(d3.extent(res), 0.04), [m.l, W - m.r]).nice();
   const positive = Array.from(pt).filter(v => v > 0);
@@ -781,7 +810,7 @@ function drawWeightResid(rec, pt, res) {
     .call(state.logWeights
       ? d3.axisLeft(ys).ticks(4, "0.0e").tickSize(4)
       : d3.axisLeft(ys).ticks(4).tickSize(4).tickFormat(d3.format(".3~g")));
-  axisLabel(svg, (m.l + W - m.r) / 2, H - 6, "y − (β₀ + β₁x)");
+  axisLabel(svg, (m.l + W - m.r) / 2, H - 6, "$y - (\\beta_0 + \\beta_1 x)$");
 
   const clip = "clip-ptresid";
   svg.append("clipPath").attr("id", clip).append("rect")
@@ -801,15 +830,106 @@ function drawWeightResid(rec, pt, res) {
   plot.append("g").selectAll("circle")
     .data(idx.filter(i => !rec.outlier[i])).join("circle")
     .attr("cx", i => xs(res[i])).attr("cy", i => ys(pt[i]))
-    .attr("r", 1.9).attr("fill", CALM).attr("fill-opacity", 0.7);
+    .attr("r", 1.9).attr("fill", CALM).attr("fill-opacity", 0.82);
   plot.append("g").selectAll("circle")
     .data(idx.filter(i => rec.outlier[i])).join("circle")
     .attr("cx", i => xs(res[i])).attr("cy", i => ys(pt[i]))
-    .attr("r", 3.2).attr("fill", CLAY).attr("fill-opacity", 0.9);
+    .attr("r", 3.2).attr("fill", CLAY).attr("fill-opacity", 1);
 
   const ring = hoverRing(plot);
   styleAxes(svg);
   return i => ring(i, i == null ? null : xs(res[i]), i == null ? null : ys(pt[i]));
+}
+
+/* Lorenz curve for the implied probabilities: observations sorted by weight,
+   largest first, against cumulative share of the total. Uniform weighting is
+   the diagonal, so the gap between curve and diagonal is the departure from
+   equal weighting — the scalar in the readout is one point on this curve. */
+function drawWeightLorenz(rec, pt) {
+  const W = 640, H = 470, m = { l: 60, r: 14, t: 12, b: 42 };
+  const svg = frame("#ptLorenz", W, H);
+
+  // Sort indices by weight descending, then accumulate.
+  const order = d3.range(nObs).sort((a, b) => pt[b] - pt[a]);
+  const total = d3.sum(pt) || 1;
+  const cum = new Float64Array(nObs);
+  let run = 0;
+  order.forEach((i, k) => { run += pt[i] / total; cum[k] = run; });
+
+  // rank[i] is where observation i sits in the sorted order, so a hover on
+  // any other panel can find its point on this curve.
+  const rank = new Int32Array(nObs);
+  order.forEach((i, k) => { rank[i] = k; });
+
+  const xs = d3.scaleLinear([0, 1], [m.l, W - m.r]);
+  const ys = d3.scaleLinear([0, 1], [H - m.b, m.t]);
+  const frac = k => (k + 1) / nObs;
+
+  svg.append("rect")
+    .attr("x", m.l).attr("y", m.t)
+    .attr("width", W - m.r - m.l).attr("height", H - m.b - m.t)
+    .attr("fill", PAPER).attr("stroke", RULE);
+
+  svg.append("g").attr("transform", `translate(0,${H - m.b})`)
+    .call(d3.axisBottom(xs).ticks(6).tickSize(4).tickFormat(d3.format(".0%")));
+  svg.append("g").attr("transform", `translate(${m.l},0)`)
+    .call(d3.axisLeft(ys).ticks(6).tickSize(4).tickFormat(d3.format(".0%")));
+  axisLabel(svg, (m.l + W - m.r) / 2, H - 8, "share of the sample, heaviest first");
+  axisLabel(svg, 15, (m.t + H - m.b) / 2, "share of total weight", "middle", -90);
+
+  const clip = "clip-ptlorenz";
+  svg.append("clipPath").attr("id", clip).append("rect")
+    .attr("x", m.l).attr("y", m.t)
+    .attr("width", W - m.r - m.l).attr("height", H - m.b - m.t);
+  const plot = svg.append("g").attr("clip-path", `url(#${clip})`);
+
+  // Uniform reference: every observation holds 1/N, so the curve is y = x.
+  plot.append("line")
+    .attr("x1", xs(0)).attr("y1", ys(0))
+    .attr("x2", xs(1)).attr("y2", ys(1))
+    .attr("stroke", MUTED).attr("stroke-dasharray", "4 3").attr("stroke-width", 1.6);
+
+  const line = d3.line().x((_, k) => xs(frac(k))).y((_, k) => ys(cum[k]));
+  plot.append("path").datum(d3.range(nObs))
+    .attr("d", line)
+    .attr("fill", "none")
+    .attr("stroke", INK)
+    .attr("stroke-width", 1.8);
+
+  // Mark where the contaminated observations run out, if any are present.
+  const nOut = d3.sum(rec.outlier);
+  if (nOut > 0 && nOut < nObs) {
+    const heldByOut = order.slice(0, nOut).reduce((s, i) => s + pt[i] / total, 0);
+    plot.append("line")
+      .attr("x1", xs(nOut / nObs)).attr("x2", xs(nOut / nObs))
+      .attr("y1", ys(0)).attr("y2", ys(1))
+      .attr("stroke", CLAY).attr("stroke-opacity", 0.45)
+      .attr("stroke-dasharray", "3 3");
+    plot.append("text")
+      .attr("x", xs(nOut / nObs) + 6).attr("y", ys(0.04))
+      .attr("font-size", 10).attr("fill", CLAY)
+      .attr("paint-order", "stroke").attr("stroke", PAPER).attr("stroke-width", 3)
+      .text(`top ${nOut} hold ${d3.format(".1%")(heldByOut)}`);
+  }
+
+  const ring = hoverRing(plot);
+  const finder = d3.Delaunay.from(d3.range(nObs), k => xs(frac(k)), k => ys(cum[k]));
+  svg.append("rect")
+    .attr("x", m.l).attr("y", m.t)
+    .attr("width", W - m.r - m.l).attr("height", H - m.b - m.t)
+    .attr("fill", "transparent")
+    .on("pointermove", ev => {
+      const [px, py] = d3.pointer(ev);
+      setHover(order[finder.find(px, py)]);
+    })
+    .on("pointerleave", () => setHover(null));
+
+  styleAxes(svg);
+  return i => {
+    if (i == null) { ring(null, null, null); return; }
+    const k = rank[i];
+    ring(i, xs(frac(k)), ys(cum[k]));
+  };
 }
 
 function weightsReadout(i, rec, gt, pt, res) {
@@ -883,14 +1003,47 @@ function bilinear(z, t1, t2) {
   return isFinite(out) ? out : null;
 }
 
+/* Bounding box of every contour ring, in grid-index units — the region
+   where at least one threshold line actually falls. Used to zoom the axes
+   to where there's something to see. */
+function contourBBox(contours) {
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  contours.forEach(c => c.coordinates.forEach(poly => poly.forEach(ring =>
+    ring.forEach(([x, y]) => {
+      if (x < x0) x0 = x; if (x > x1) x1 = x;
+      if (y < y0) y0 = y; if (y > y1) y1 = y;
+    })
+  )));
+  return isFinite(x0) ? [x0, x1, y0, y1] : null;
+}
+
 function drawLLSurface(zc, info) {
   const W = 640, H = 470, m = { l: 54, r: 16, t: 12, b: 44 };
   const svg = frame("#llSurface", W, H);
-  const xs = d3.scaleLinear([meta.th1[0], meta.th1[n1 - 1]], [m.l, W - m.r]);
-  const ys = d3.scaleLinear([meta.th2[0], meta.th2[n2 - 1]], [H - m.b, m.t]);
 
   const levels = d3.ticks(info.floor, info.maxLL, 11).filter(v => v > info.floor);
   const contours = d3.contours().size([n1, n2]).thresholds(levels)(zc);
+
+  // Zoom the axes to where the contours actually sit, so the corners of the
+  // grid that are entirely at the floor value aren't shown as dead space.
+  const bbox = contourBBox(contours);
+  let dom1 = [meta.th1[0], meta.th1[n1 - 1]];
+  let dom2 = [meta.th2[0], meta.th2[n2 - 1]];
+  if (bbox) {
+    const [gx0, gx1, gy0, gy1] = bbox;
+    const padX = (gx1 - gx0) * 0.08 || 1;
+    const padY = (gy1 - gy0) * 0.08 || 1;
+    dom1 = [
+      Math.max(meta.th1[0], meta.th1[0] + (gx0 - padX) * d1),
+      Math.min(meta.th1[n1 - 1], meta.th1[0] + (gx1 + padX) * d1)
+    ];
+    dom2 = [
+      Math.max(meta.th2[0], meta.th2[0] + (gy0 - padY) * d2),
+      Math.min(meta.th2[n2 - 1], meta.th2[0] + (gy1 + padY) * d2)
+    ];
+  }
+  const xs = d3.scaleLinear(dom1, [m.l, W - m.r]);
+  const ys = d3.scaleLinear(dom2, [H - m.b, m.t]);
 
   // Contour coordinates arrive in grid-index units.
   const path = d3.geoPath(d3.geoTransform({
@@ -899,14 +1052,13 @@ function drawLLSurface(zc, info) {
 
   const fill = d3.scaleLinear()
     .domain([info.floor, info.floor + (info.maxLL - info.floor) * 0.55, info.maxLL])
-    .range(["#f5f1e7", "#cfdce4", "#6f97ac"])
+    .range(["#eef4f8", "#cfdce4", "#6f97ac"])
     .interpolate(d3.interpolateLab)
     .clamp(true);
-
   svg.append("rect")
     .attr("x", m.l).attr("y", m.t)
     .attr("width", W - m.r - m.l).attr("height", H - m.b - m.t)
-    .attr("fill", "#f5f1e7").attr("stroke", RULE);
+    .attr("fill", PAPER).attr("stroke", RULE);
 
   const clip = "clip-ll";
   svg.append("clipPath").attr("id", clip).append("rect")
@@ -918,8 +1070,8 @@ function drawLLSurface(zc, info) {
     .attr("d", path)
     .attr("fill", c => fill(c.value))
     .attr("stroke", INK)
-    .attr("stroke-opacity", 0.35)
-    .attr("stroke-width", 0.8);
+    .attr("stroke-opacity", 0.4)
+    .attr("stroke-width", 0.95);
 
   const anchorX = xs(meta.th1[info.maxI1]), anchorY = ys(meta.th2[info.maxI2]);
   labelContours(plot, contours, xs, ys, anchorX, anchorY);
@@ -943,8 +1095,8 @@ function drawLLSurface(zc, info) {
     .call(d3.axisBottom(xs).ticks(8).tickSize(4));
   svg.append("g").attr("transform", `translate(${m.l},0)`)
     .call(d3.axisLeft(ys).ticks(8).tickSize(4));
-  axisLabel(svg, (m.l + W - m.r) / 2, H - 8, "θ₁  (intercept)");
-  axisLabel(svg, 15, (m.t + H - m.b) / 2, "θ₂  (slope)", "middle", -90);
+  axisLabel(svg, (m.l + W - m.r) / 2, H - 8, "$\\beta_0$");
+  axisLabel(svg, 15, (m.t + H - m.b) / 2, "$\\beta_1$", "middle", -90);
 
   const cross = plot.append("g").style("display", "none");
   const cx = cross.append("circle").attr("r", 3).attr("fill", "none")
@@ -1021,14 +1173,14 @@ function drawLLProfiles(z, info) {
 
   const panels = [
     {
-      label: `θ₁ at θ₂ = ${meta.th2[info.maxI2]}`,
+      label: `β₀ at β₁ = ${meta.th2[info.maxI2]}`,
       axis: meta.th1,
       v: d3.range(n1).map(i => Math.max(z[info.maxI2 * n1 + i], info.floor)),
       truth: meta.beta_true.b0,
       at: info.maxI1
     },
     {
-      label: `θ₂ at θ₁ = ${meta.th1[info.maxI1]}`,
+      label: `β₁ at β₀ = ${meta.th1[info.maxI1]}`,
       axis: meta.th2,
       v: d3.range(n2).map(j => Math.max(z[j * n1 + info.maxI1], info.floor)),
       truth: meta.beta_true.b1,
@@ -1128,7 +1280,7 @@ function buildKnobs() {
   });
 
   tabGroup("#pctTabs",
-    meta.pct.map((p, i) => ({ label: `${+p}%`, i })),
+    meta.pct.map((p, i) => ({ label: `$${+p}\\%$`, i })),
     d => d.i === state.iPct,
     d => { state.iPct = d.i; render(); });
 
@@ -1287,4 +1439,14 @@ function prefetch() {
   buildKnobs();
   window.addEventListener("hashchange", () => { readHash(); buildKnobs(); render(); });
   render();
+
+  if (window.renderMathInElement) {
+    renderMathInElement(document.body, {
+      delimiters: [
+        { left: "$$", right: "$$", display: true },
+        { left: "$",  right: "$",  display: false }
+      ],
+      throwOnError: false
+    });
+  }
 })();

@@ -5,7 +5,7 @@
   --paper: #fdfcf9;
   --panel: #f6f3ec;
   --ink:   #1f1d1a;
-  --muted: #7b746a;
+  --muted: #4a4640;
   --rule:  #ddd7cb;
   --clay:  #b8452f;
 
@@ -151,6 +151,7 @@ nav.views {
 }
 .stage .left, .stage .right { min-width: 0; }
 .stage .right { display: flex; flex-direction: column; }
+.weights-top { grid-template-columns: 1fr 1fr; }
 
 .view { display: none; }
 .view.on { display: block; }
