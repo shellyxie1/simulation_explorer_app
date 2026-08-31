@@ -334,24 +334,24 @@ function mathSvg(tex, px, colour) {
   return { node, w, h };
 }
 
-function styleAxes(svg) {
+function styleAxes(svg, px = 12) {
   svg.selectAll(".domain, .tick line").attr("stroke", AXIS);
   svg.selectAll(".tick text")
     .attr("fill", MUTED)
-    .attr("font-size", 10);
-  mathTicks(svg);
+    .attr("font-size", px);
+  mathTicks(svg, px);
   return svg;
 }
 
 /* Tick labels through the same path, so digits match the labels and survive
    export. Position comes from the text's own box rather than per-axis rules. */
-function mathTicks(svg) {
+function mathTicks(svg, px = 12) {
   svg.selectAll(".tick text").each(function () {
     const raw = this.textContent.replace(/,/g, "").replace(/−/g, "-").trim();
     if (!raw) return;
     let box;
     try { box = this.getBBox(); } catch (e) { return; }
-    const m = mathSvg(raw, 10, MUTED);
+    const m = mathSvg(raw, px, MUTED);
     if (!m) return;
     m.node.setAttribute("x", box.x + box.width / 2 - m.w / 2);
     m.node.setAttribute("y", box.y + box.height / 2 - m.h / 2);
@@ -360,15 +360,15 @@ function mathTicks(svg) {
   });
 }
 
-function axisLabel(g, x, y, text, anchor = "middle", rotate = 0) {
+function axisLabel(g, x, y, text, anchor = "middle", rotate = 0, px = 18) {
   const isTex = text.startsWith("$") && text.endsWith("$") && text.length > 2;
-  const m = isTex ? mathSvg(text.slice(1, -1), 11, MUTED) : null;
+  const m = isTex ? mathSvg(text.slice(1, -1), px, MUTED) : null;
 
   if (!m) {
     g.append("text")
       .attr("transform", `translate(${x},${y}) rotate(${rotate})`)
       .attr("text-anchor", anchor)
-      .attr("font-size", 11)
+      .attr("font-size", px)
       .attr("fill", MUTED)
       .text(isTex ? text.slice(1, -1) : text);
     return;
@@ -659,6 +659,45 @@ function drawRidges() {
   const rows = d3.range(eLo, eHi + 1);
   const nRows = rows.length;
 
+  /* Both facets register their paths under the same (eps, method) key, so
+     hovering a ridge in one panel lights up the same run in the other. */
+  const ridgePaths = new Map();
+
+  function applyHover(key) {
+    ridgePaths.forEach((arr, k) => {
+      const on = key == null || k === key;
+      arr.forEach(o => {
+        o.area.attr("fill-opacity", key == null ? 0.20 : (on ? 0.45 : 0.05));
+        o.outline
+          .attr("stroke-width", key != null && on ? 2.4 : 1.2)
+          .attr("stroke-opacity", key == null ? 1 : (on ? 1 : 0.2));
+      });
+    });
+  }
+
+  function ridgeReadout(e, mkey) {
+    const el = d3.select("#estReadout");
+    if (e == null) { el.html(""); return; }
+    const mm = METHODS.find(x => x.key === mkey);
+    const bits = [
+      `<b style="color:${mm.colour}">${mm.label}</b>`,
+      `<span class="dim">μ</span> ${fg(meta.eps[e])}`
+    ];
+    [["b0", "β̂₀", meta.beta_true.b0], ["b1", "β̂₁", meta.beta_true.b1]]
+      .forEach(([pk, lab, truth]) => {
+        const v = coefRun(mkey, pk, state.iPct, e);
+        const mean = d3.mean(v);
+        const rmse = Math.sqrt(d3.mean(v, d => (d - truth) ** 2));
+        bits.push(
+          `<span class="dim">${lab}</span> ${f3(mean)}` +
+          ` <span class="dim">bias</span> ${f3(mean - truth)}` +
+          ` <span class="dim">sd</span> ${f3(d3.deviation(v))}` +
+          ` <span class="dim">rmse</span> ${f3(rmse)}`
+        );
+      });
+    el.html(bits.join(`<span class="sep">|</span>`));
+  }
+
   params.forEach((p, fi) => {
     const m = { l: fi === 0 ? 46 : 30, r: 12, t: 26, b: 38 };
     const x0 = fi * (facetW + gutter);
@@ -735,14 +774,18 @@ function drawRidges() {
     dens.sort((a, b) => d3.descending(a.e, b.e));
     dens.forEach(({ e, mm, z }) => {
       const row = plot.append("g").attr("transform", `translate(0,${rowY(e)})`);
-      row.append("path").datum(z)
+      const aPath = row.append("path").datum(z)
         .attr("d", area)
         .attr("fill", mm.colour).attr("fill-opacity", 0.20)
         .attr("stroke", "none");
-      row.append("path").datum(z)
+      const oPath = row.append("path").datum(z)
         .attr("d", outline)
         .attr("fill", "none")
         .attr("stroke", mm.colour).attr("stroke-width", 1.2);
+
+      const key = `${e}|${mm.key}`;
+      if (!ridgePaths.has(key)) ridgePaths.set(key, []);
+      ridgePaths.get(key).push({ area: aPath, outline: oPath });
     });
 
     g.append("g").attr("transform", `translate(0,${H - m.b})`)
@@ -755,18 +798,50 @@ function drawRidges() {
       g.append("g").selectAll("text").data(rows).join("text")
         .attr("x", m.l - 8).attr("y", e => rowY(e) + 3.5)
         .attr("text-anchor", "end")
-        .attr("font-size", 10).attr("font-family", "ui-monospace, Menlo, monospace")
+        .attr("font-size", 16).attr("font-family", "ui-monospace, Menlo, monospace")
         .attr("fill", MUTED)
         .text(e => meta.eps[e]);
-      axisLabel(g, 13, H / 2, "$\\mu_{\\epsilon_{\\text{out}}}$", "middle", -90);
+      axisLabel(g, 13, H / 2, "$\\mu_{\\epsilon_{\\text{out}}}$", "middle", -90, 22);
     }
     g.append("text")
       .attr("x", m.l).attr("y", 14)
       .attr("font-size", 12).attr("fill", INK)
       .text(`${p.label}   true ${p.truth}`);
+
+    /* Pick the ridge the pointer is actually inside, front row first, so the
+       one drawn on top is the one that responds. Falling back to the nearest
+       baseline means the gaps between ridges still select something. */
+    g.append("rect")
+      .attr("x", m.l).attr("y", m.t)
+      .attr("width", facetW - m.r - m.l).attr("height", H - m.b - m.t)
+      .attr("fill", "transparent")
+      .on("pointermove", function (ev) {
+        const [px, py] = d3.pointer(ev, g.node());
+        let gi = Math.round((xs.invert(px) - dom[0]) / (dom[1] - dom[0]) * 199);
+        gi = Math.max(0, Math.min(199, gi));
+
+        const inside = dens.filter(d => {
+          const base = rowY(d.e);
+          return py <= base && py >= base - ys(d.z[gi]);
+        });
+        let best;
+        if (inside.length) {
+          const front = d3.max(inside, d => rowY(d.e));
+          best = inside.filter(d => rowY(d.e) === front)
+            .reduce((a, b) =>
+              Math.abs(py - (rowY(a.e) - ys(a.z[gi]))) <=
+              Math.abs(py - (rowY(b.e) - ys(b.z[gi]))) ? a : b);
+        } else {
+          best = dens.reduce((a, b) =>
+            Math.abs(rowY(a.e) - py) <= Math.abs(rowY(b.e) - py) ? a : b);
+        }
+        applyHover(`${best.e}|${best.mm.key}`);
+        ridgeReadout(best.e, best.mm.key);
+      })
+      .on("pointerleave", () => { applyHover(null); ridgeReadout(null); });
   });
 
-  styleAxes(svg);
+  styleAxes(svg, 16);
 }
 
 /* Bias and RMSE across the sweep, one small panel each per coefficient, in the
@@ -1172,7 +1247,7 @@ function contourBBox(contours) {
 }
 
 function drawLLSurface(zc, info) {
-  const W = 640, H = 470, m = { l: 54, r: 16, t: 12, b: 44 };
+  const W = 640, H = 470, m = { l: 66, r: 16, t: 12, b: 44 };
   const svg = frame("#llSurface", W, H);
 
   const levels = d3.ticks(info.floor, info.maxLL, 11).filter(v => v > info.floor);
