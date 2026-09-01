@@ -43,7 +43,6 @@ body {
 }
 .lede {
   margin: 0;
-  max-width: 74ch;
   color: var(--muted);
   font-size: 16px;
 }
@@ -235,7 +234,6 @@ nav.views {
   font-size: 15px;
   color: var(--muted);
   margin-top: 14px;
-  max-width: 92ch;
 }
 .caption em { color: var(--ink); font-style: italic; }
 
