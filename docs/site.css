@@ -275,7 +275,6 @@ footer a { color: var(--muted); }
 /* Two panels, one per study, each the whole choice: picture, name, one line of
    what it is. The clay in each picture is the same clay as in the explorers. */
 .landing .masthead { padding-top: 52px; }
-.landing .lede { max-width: 760px; }
 .studies {
   display: grid;
   grid-template-columns: 1fr 1fr;
