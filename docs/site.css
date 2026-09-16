@@ -255,22 +255,21 @@ footer a { color: var(--muted); }
   .knobs input[type=range] { width: 170px; }
 }
 
-/* ---- site navigation ----------------------------------------------------- */
-/* One strip shared by the landing page and both explorers, so moving between
-   the studies reads as staying on one site. */
+/* ---- study switcher -------------------------------------------------------- */
+/* The same tab idiom as the view switcher, one size up, so moving between the
+   two studies reads as the outermost level of the same control. */
 .sitenav {
   max-width: 1240px;
   margin: 0 auto;
-  padding: 16px 0 0;
-  display: flex;
-  gap: 22px;
-  font-family: var(--mono);
-  font-size: 13px;
+  padding: 20px 0 0;
 }
-.sitenav a { color: var(--muted); text-decoration: none; padding-bottom: 2px; }
-.sitenav a:hover { color: var(--ink); }
-.sitenav a.on { color: var(--ink); border-bottom: 1px solid var(--ink); }
-.sitenav + .masthead { padding-top: 26px; }
+.sitenav .tab {
+  display: inline-block;
+  font-size: 14px;
+  padding: 8px 22px;
+  text-decoration: none;
+}
+.sitenav + .masthead { padding-top: 24px; }
 
 /* ---- landing page ---------------------------------------------------------- */
 .studies {
