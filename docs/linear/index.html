@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Outlier Simulation Explorer</title>
+<meta name="description" content="How outliers move OLS and exponentially tilted empirical likelihood estimates in a simple linear model.">
+<!-- Inline so the folder stays four files and the browser stops asking. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23fdfcf9'/%3E%3Cpath d='M4 26L28 6' stroke='%231f1d1a' stroke-width='2' stroke-dasharray='4 3'/%3E%3Ccircle cx='22' cy='23' r='4' fill='%23b8452f'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../site.css">
+<!-- d3 vendored rather than pulled from a CDN: the site is a folder of static
+     files and should keep working from a local checkout with no network. -->
+<script src="../d3.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [["$", "$"]] },
+  svg: { fontCache: "local" },
+  startup: { typeset: false }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+
+<nav class="sitenav" aria-label="Site">
+  <a href="../">Outlier explorers</a>
+  <a href="../linear/" class="on">Linear regression</a>
+  <a href="../lognormal/">Log-normal</a>
+</nav>
+
+<header class="masthead">
+  <h1>Outlier Simulation Explorer</h1>
+  <p class="lede">
+    A linear model, <span class="mono">$y = \beta_0 + \beta_1 x + \epsilon$</span>
+    with true coefficients <span class="mono">$\beta_0 = 2$</span> and
+    <span class="mono">$\beta_1 = -3$</span>, fitted 50 times over a grid of contamination
+    settings. In each sample a share of the observations is replaced by outliers, whose errors
+    are drawn from <span class="mono">$N(\mu_{\epsilon_{\text{out}}}, 1)$</span>, with
+    <span class="mono">$\mu_{\epsilon_{\text{out}}}$</span> running from $-5$ to $5$ in steps
+    of 1. There are three estimators: OLS, ETEL_bias and ETEL. For a given setting and replicate,
+    one dataset is generated, and all three estimators are fitted to that identical dataset. The
+    knobs below choose which sample you are looking at, and every view reads the same choice.
+  </p>
+</header>
+
+<nav class="tabs views" id="views" aria-label="View"></nav>
+
+<div class="knobs global" id="globalKnobs">
+  <span class="ctl">
+    <span class="lbl">outliers</span>
+    <span class="tabs" id="pctTabs"></span>
+  </span>
+  <label class="ctl">
+    <span class="lbl">$\mu_{\epsilon_{\text{out}}}$</span>
+    <input type="range" id="epsRange" min="0" max="10" step="1">
+    <span class="val" id="epsVal"></span>
+  </label>
+  <label class="ctl" id="epsRangeCtl">
+    <span class="lbl">$\mu_{\epsilon_{\text{out}}}$ range</span>
+    <span class="dual">
+      <span class="dual-track"></span>
+      <span class="dual-fill" id="epsFill"></span>
+      <input type="range" id="epsLoRange" min="0" max="10" step="1">
+      <input type="range" id="epsHiRange" min="0" max="10" step="1">
+    </span>
+    <span class="val" id="epsRangeVal"></span>
+  </label>
+  <label class="ctl">
+    <span class="lbl">replicate</span>
+    <input type="range" id="simRange" min="0" max="49" step="1">
+    <span class="val" id="simVal"></span>
+  </label>
+</div>
+
+<main>
+
+  <!-- ---- one sample ------------------------------------------------------ -->
+  <section class="view" data-view="sample">
+    <div class="stage">
+      <div class="left">
+        <h2>Simulated data</h2>
+        <div class="figure" id="sampleScatter"></div>
+        <div class="readout" id="sampleReadout"></div>
+      </div>
+      <div class="right">
+        <h2>What each estimator returned</h2>
+        <div class="figure" id="sampleCoefs"></div>
+        <h2>Errors from the true line</h2>
+        <div class="figure" id="sampleResid"></div>
+      </div>
+    </div>
+    <div class="knobs" id="sampleKnobs"></div>
+    <p class="caption">
+      The dashed line is the truth. Each solid line is one estimator's fit to
+      <em>this</em> sample. In the panel on the right the pale ticks are that
+      estimator's other 49 replicates at the same setting. Hover a point to follow it.
+    </p>
+  </section>
+
+  <!-- ---- sampling distributions ------------------------------------------ -->
+  <section class="view" data-view="estimates">
+    <div class="stage estimates-stage">
+      <div class="left">
+        <h2>Sampling distributions over &mu;<sub>&epsilon;<sub>out</sub></sub></h2>
+        <div class="figure" id="ridges"></div>
+        <div class="readout" id="estReadout"></div>
+      </div>
+      <div class="right">
+        <h2>Bias and root mean squared error</h2>
+        <div class="figure" id="estPanels"></div>
+      </div>
+    </div>
+    <div class="knobs" id="estKnobs"></div>
+    <p class="caption">
+      Each ridge is a kernel density over the 50 replicates at one contamination
+      mean. The dashed rule is the true value and the row for the current
+      <span class="mono">$\mu_{\epsilon_{\text{out}}}$</span> is banded.
+    </p>
+  </section>
+
+  <!-- ---- weights --------------------------------------------------------- -->
+  <section class="view" data-view="weights">
+      <div class="stage weights-top">
+      <div class="left">
+        <h2>Inner product &lambda;<sup>&#8868;</sup>g per observation</h2>
+        <div class="figure" id="gtPlot"></div>
+        <div class="readout" id="weightsReadout"></div>
+      </div>
+      <div class="right">
+        <h2>Implied probabilities</h2>
+        <div class="figure" id="ptPlot"></div>
+      </div>
+      <div class="left">
+        <h2>Weight against error</h2>
+        <div class="figure" id="ptResid"></div>
+      </div>
+      <div class="right">
+        <h2>Cumulative share of weight</h2>
+        <div class="figure" id="ptLorenz"></div>
+      </div>
+    </div>
+    <div class="knobs" id="weightsKnobs"></div>
+    <p class="caption">
+      The inner product <span class="mono">&lambda;<sup>&#8868;</sup>g</span> is what the fit
+      assigns to each observation, and the implied probabilities are its softmax, so
+      the two panels are the same numbers before and after normalising. The dashed
+      rule is the uniform weight <span class="mono">1/N</span> that ordinary least
+      squares gives every point. The bottom panel puts weight against distance from
+      the true line: a downweighting that works is a curve falling away from the
+      centre.
+    </p>
+  </section>
+
+  <!-- ---- likelihood surface ---------------------------------------------- -->
+  <section class="view" data-view="likelihood">
+    <div class="stage">
+      <div class="left">
+        <h2>ETEL log-likelihood over (&beta;<sub>0</sub>, &beta;<sub>1</sub>)</h2>
+        <div class="figure" id="llSurface"></div>
+        <div class="readout" id="llReadout"></div>
+      </div>
+      <div class="right">
+        <h2>Profiles through the maximum</h2>
+        <div class="figure" id="llProfiles"></div>
+      </div>
+    </div>
+    <div class="knobs" id="llKnobs"></div>
+    <p class="caption">
+      Contours of the exponentially tilted empirical likelihood on a grid over the
+      two coefficients. The clay mark is the true <span class="mono">(2, &minus;3)</span>.
+      The ink mark is the best point on the grid. The window slider clips everything
+      more than that many log-likelihood units below the maximum, which is what keeps
+      the contours near the peak from collapsing into a single blot.
+    </p>
+  </section>
+
+</main>
+
+<footer>
+  <p>
+    Static site &mdash; the whole thing is
+    <a href="https://d3js.org">d3</a> over
+    <span class="mono">31&nbsp;MB</span> of pre-exported simulation output, no server.
+    Regenerate the payload with <span class="mono">Rscript export_data.R</span>.
+  </p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

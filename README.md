@@ -1,77 +1,79 @@
-# Outlier Simulation Explorer
+# Outlier Simulation Explorers
 
-Four linked views over a contamination study of a simple linear model
-`y = β₀ + β₁x + ε` with `β = (2, −3)`: a share of each sample is replaced by
-outliers drawn around a mean error `ε̄_out`, and three estimators — OLS and two
-exponentially tilted empirical likelihood fits — see the same data. The sweep is
-3 contamination levels × 11 values of `ε̄_out` × 50 replicates × 1000
-observations.
+Two interactive simulation studies of how outliers move exponentially tilted
+empirical likelihood (ETEL) estimates, published as one static site:
 
-The site is at [fleverest.github.io/simulation_explorer_app](https://fleverest.github.io/simulation_explorer_app).
+| study | model | what is contaminated | estimators |
+| --- | --- | --- | --- |
+| [linear](linear/) | `y = β₀ + β₁x + ε`, `β = (2, −3)` | a share of errors drawn around a shifted mean `ε̄_out` | OLS, ETEL from a biased start, ETEL from the truth |
+| [lognormal](lognormal/) | `y ~ LN(μ, σ²)`, `(μ, σ²) = (0, 0.25)`, fitted through its first three raw moments | a share of observations with log-mean shifted by `δ` | ETEL from a biased start, ETEL from the truth |
 
-## What it shows
+Each study is 3 contamination levels × a sweep of the shift × 50 replicates of
+1000 observations, and each explorer has the same four views: one sample, the
+sampling distributions of the estimates, the ETEL weights, and the
+log-likelihood surface. The three global knobs are written into the URL, so a
+particular sample can be linked to directly, for example
+`lognormal/#weights/05/-3/17`.
 
-| view | question |
-| --- | --- |
-| one sample | Where did the outliers land in this replicate, and what did each estimator do with them? |
-| sampling distributions | How do the 50 replicates spread out as contamination gets worse, and what does that cost in bias and RMSE? |
-| weights | Which observations does the tilt `gₜλ` push down, and does the downweighting track distance from the true line? |
-| likelihood surface | Where is the ETEL log-likelihood actually maximised, and how far is that from the truth? |
-
-The three global knobs — contamination level, `ε̄_out`, replicate — are shared by
-every view, and are written into the URL, so a particular sample can be linked
-to directly: `#weights/05/-3/17`.
+The site is at [shellyxie1.github.io/simulation_explorer_app](https://shellyxie1.github.io/simulation_explorer_app).
 
 ## Layout
 
 ```
-docs/            the site — plain static files, no build step
-  index.html
-  site.css
-  app.js         all four views
-  d3.min.js      vendored (v7.9.0), so the site runs offline
-  data/
-    meta.json    factor levels, the theta grid, and the binary layout
-    coefs.json   1650 x 3 coefficient pairs, loaded once
-    rep/*.bin    one ~19 KB binary per replicate, fetched on demand
-export_data.R    outputs/*.rds -> docs/data/   (base R only)
-app.R            the original Shiny app, kept as the reference for what each
-                 view plots; still runnable with shiny::runApp()
-outputs/         the simulation output the export reads
+docs/                  the site — plain static files, no build step
+  index.html           landing page linking the two explorers
+  site.css             shared stylesheet
+  d3.min.js            vendored (v7.9.0), shared, so the site runs offline
+  linear/
+    index.html, app.js
+    data/              meta.json, coefs.json, rep/*.bin
+  lognormal/
+    index.html, app.js
+    data/              meta.json, coefs.json, rep/*.bin
+linear/                the linear-regression pipeline
+  export_data.R        outputs/*.rds -> ../docs/linear/data/   (base R only)
+  app.R                the original Shiny app, kept as the reference for each view
+  prepare_lite_outputs.R
+  outputs/             the simulation output the export reads
+lognormal/             the log-normal pipeline
+  00_*.R … 06_*.R      simulation, ETEL fitting, log-likelihood surface
+  export_data.R        outputs/*.rds -> ../docs/lognormal/data/   (base R only)
+  app.R                the original Shiny app
+  outputs/
 ```
 
 ## Running it
 
-Any static file server will do:
+Any static file server will do, started from `docs/`:
 
 ```sh
 cd docs && python3 -m http.server 8008
 ```
 
-Opening `docs/index.html` straight off disk will not work: the replicate data is
-fetched, and `file://` requests are blocked as cross-origin.
+Then open <http://localhost:8008/>. Opening the HTML files straight off disk
+will not work: the replicate data is fetched, and `file://` requests are
+blocked as cross-origin.
 
 ## Regenerating the data
 
-After the simulation outputs change:
+Each pipeline exports from inside its own folder:
 
 ```sh
-Rscript export_data.R
+cd linear    && Rscript export_data.R
+cd lognormal && Rscript export_data.R
 ```
 
-It reads `outputs/*.rds` and rewrites `docs/data/`. Nothing but base R is
-needed, and it takes a few seconds.
+Both read `outputs/*.rds` and rewrite the matching `docs/*/data/`. Nothing but
+base R is needed, and each takes a few seconds.
 
-Two things are worth knowing about the payload. Only the tilt `gₜλ` is
-exported for each GEL fit, not the implied probabilities, because the second is
-exactly `softmax` of the first and the site derives it. And the per-observation
-columns go out as little-endian float32 binaries rather than JSON: as text they
-would be roughly 75 MB, and the browser would parse a megabyte of digits every
-time a slider moved. `meta.json` carries the byte offsets, so changing `n_obs`
-or thinning the theta grid needs no change to `app.js`.
-
-The whole of `docs/` is about 32 MB, against 244 MB for the Shinylive export it
-replaces, and it renders without downloading a WebAssembly R.
+The payload design is the same in both. Only the tilt `λᵀgᵢ` is exported for
+each ETEL fit, not the implied probabilities, because `log πᵢ = λᵀgᵢ −
+logsumexp(λᵀg)` and the site derives it. The per-observation columns go out as
+little-endian float32 binaries rather than JSON, and `meta.json` carries the
+byte offsets, so a change in `n_obs` or the parameter grid needs no change on
+the JavaScript side. The log-normal grid additionally has infeasible cells
+(where the zero vector is outside the convex hull of the moment conditions);
+they travel as `NaN` plus an explicit `hull` flag and are shaded on the surface.
 
 ## Deploying
 

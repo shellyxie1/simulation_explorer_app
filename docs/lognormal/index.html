@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Log-normal Outlier Explorer</title>
+<meta name="description" content="How log-scale outliers move exponentially tilted empirical likelihood estimates of a log-normal distribution.">
+<!-- Inline so the folder stays four files and the browser stops asking. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23fdfcf9'/%3E%3Cpath d='M4 26 Q10 4 16 20 T28 26' stroke='%231f1d1a' stroke-width='2' fill='none'/%3E%3Ccircle cx='24' cy='9' r='4' fill='%23b8452f'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../site.css">
+<!-- d3 vendored rather than pulled from a CDN: the site is a folder of static
+     files and should keep working from a local checkout with no network. -->
+<script src="../d3.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [["$", "$"]] },
+  svg: { fontCache: "local" },
+  startup: { typeset: false }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+
+<nav class="sitenav" aria-label="Site">
+  <a href="../">Outlier explorers</a>
+  <a href="../linear/">Linear regression</a>
+  <a href="../lognormal/" class="on">Log-normal</a>
+</nav>
+
+<header class="masthead">
+  <h1>Log-normal Outlier Explorer</h1>
+  <p class="lede">
+    A log-normal sample, <span class="mono">$y_i \sim \mathrm{LN}(\mu, \sigma^2)$</span>
+    with <span class="mono">$\mu = 0$</span> and <span class="mono">$\sigma^2 = 0.25$</span>,
+    of size <span class="mono">$n = 1000$</span>, drawn 50 times over a grid of contamination
+    settings. In each sample a share of the observations is contaminated: their log-mean is
+    shifted by <span class="mono">$\delta$</span>, so
+    <span class="mono">$\log y_i \sim N(\mu + \delta, \sigma^2)$</span>, with
+    <span class="mono">$\delta$</span> running over $-4, \dots, -1, 1, \dots, 4$.
+    Two exponentially tilted empirical likelihood (ETEL) fits use the first three raw moments,
+    <span class="mono">$E[y^k] = \exp(k\mu + k^2\sigma^2/2)$</span>, as estimating equations:
+    one is started at the true <span class="mono">$(\mu, \sigma^2)$</span>, the other from a
+    biased point 70% of the way from the truth to the edge of the feasible region in the
+    direction $(1, 1)$. Both see the same sample. The knobs below choose which sample you are
+    looking at, and every view reads the same choice.
+  </p>
+</header>
+
+<nav class="tabs views" id="views" aria-label="View"></nav>
+
+<div class="knobs global" id="globalKnobs">
+  <span class="ctl">
+    <span class="lbl">outliers</span>
+    <span class="tabs" id="pctTabs"></span>
+  </span>
+  <label class="ctl" id="deltaCtl">
+    <span class="lbl">$\delta$</span>
+    <input type="range" id="deltaRange" min="0" max="7" step="1">
+    <span class="val" id="deltaVal"></span>
+  </label>
+  <label class="ctl" id="deltaRangeCtl">
+    <span class="lbl">$\delta$ range</span>
+    <span class="dual">
+      <span class="dual-track"></span>
+      <span class="dual-fill" id="deltaFill"></span>
+      <input type="range" id="deltaLoRange" min="0" max="7" step="1">
+      <input type="range" id="deltaHiRange" min="0" max="7" step="1">
+    </span>
+    <span class="val" id="deltaRangeVal"></span>
+  </label>
+  <label class="ctl" id="simCtl">
+    <span class="lbl">replicate</span>
+    <input type="range" id="simRange" min="0" max="49" step="1">
+    <span class="val" id="simVal"></span>
+  </label>
+</div>
+
+<main>
+
+  <!-- ---- one sample ------------------------------------------------------ -->
+  <section class="view" data-view="sample">
+    <div class="stage">
+      <div class="left">
+        <h2>Simulated data</h2>
+        <div class="figure" id="sampleScatter"></div>
+        <div class="readout" id="sampleReadout"></div>
+      </div>
+      <div class="right">
+        <h2>What each fit returned</h2>
+        <div class="figure" id="sampleCoefs"></div>
+        <h2>Clean and outlier densities</h2>
+        <div class="figure" id="sampleDens"></div>
+      </div>
+    </div>
+    <div class="knobs" id="sampleKnobs"></div>
+    <p class="caption">
+      The dashed rule is the true mean <span class="mono">$\exp(\mu + \sigma^2/2)$</span>.
+      Each solid rule is the mean implied by one fit to <em>this</em> sample. In the top-right
+      panel the pale ticks are that fit's other 49 replicates at the same setting. The bottom-right
+      panel is the mixture the sample is drawn from: the clean component
+      <span class="mono">$\mathrm{LN}(\mu, \sigma^2)$</span> and the contaminated component
+      <span class="mono">$\mathrm{LN}(\mu + \delta, \sigma^2)$</span>, each as a density on the
+      raw scale. Hover a point to follow it.
+    </p>
+  </section>
+
+  <!-- ---- sampling distributions ------------------------------------------ -->
+  <section class="view" data-view="estimates">
+    <div class="stage estimates-stage">
+      <div class="left">
+        <h2>Sampling distributions over &delta;</h2>
+        <div class="figure" id="ridges"></div>
+        <div class="readout" id="estReadout"></div>
+      </div>
+      <div class="right">
+        <h2>Bias and root mean squared error</h2>
+        <div class="figure" id="estPanels"></div>
+      </div>
+    </div>
+    <div class="knobs" id="estKnobs"></div>
+    <p class="caption">
+      Each ridge is a kernel density over the 50 replicates at one
+      <span class="mono">$\delta$</span>. The dashed rule is the true value. Replicates whose
+      fit did not converge are still included; the bias and RMSE panels use every replicate
+      with a finite estimate.
+    </p>
+  </section>
+
+  <!-- ---- weights --------------------------------------------------------- -->
+  <section class="view" data-view="weights">
+    <div class="stage weights-top">
+      <div class="left">
+        <h2>Inner product &lambda;<sup>&#8868;</sup>g<sub>i</sub> per observation</h2>
+        <div class="figure" id="gtPlot"></div>
+        <div class="readout" id="weightsReadout"></div>
+      </div>
+      <div class="right">
+        <h2>Implied probabilities</h2>
+        <div class="figure" id="ptPlot"></div>
+      </div>
+      <div class="left">
+        <h2>Weight against log-deviation</h2>
+        <div class="figure" id="ptDev"></div>
+      </div>
+      <div class="right">
+        <h2>Cumulative share of weight</h2>
+        <div class="figure" id="ptLorenz"></div>
+      </div>
+    </div>
+    <div class="knobs" id="weightsKnobs"></div>
+    <p class="caption">
+      The inner product <span class="mono">&lambda;<sup>&#8868;</sup>g<sub>i</sub></span> is what
+      the fit assigns to each observation, and the implied probabilities
+      <span class="mono">&pi;<sub>i</sub></span> are its softmax, so the two panels are the same
+      numbers before and after normalising. The dashed rule is the uniform weight
+      <span class="mono">1/N</span>. A collapsed fit puts almost all weight on a handful of
+      points; that is invisible on the raw scale and obvious on the log scale. The bottom-left
+      panel puts weight against <span class="mono">$\log y_i - \mu$</span>, the distance of each
+      point from the true log-mean: a downweighting that works is a curve falling away from
+      zero.
+    </p>
+  </section>
+
+  <!-- ---- likelihood surface ---------------------------------------------- -->
+  <section class="view" data-view="likelihood">
+    <div class="stage">
+      <div class="left">
+        <h2>ETEL log-likelihood over (&mu;, &sigma;<sup>2</sup>)</h2>
+        <div class="figure" id="llSurface"></div>
+        <div class="readout" id="llReadout"></div>
+      </div>
+      <div class="right">
+        <h2>Profiles through the grid maximum</h2>
+        <div class="figure" id="llProfiles"></div>
+      </div>
+    </div>
+    <div class="knobs" id="llKnobs"></div>
+    <p class="caption">
+      Contours of the exponentially tilted empirical likelihood on a grid over the two
+      parameters. Grey cells are infeasible: the zero vector is outside the convex hull of the
+      moment conditions there, so no tilt exists. The clay mark is the true
+      <span class="mono">(0, 0.25)</span>; the ink mark is the best point on the grid; the
+      coloured marks are the two ETEL estimates, with a thin line from the biased start to
+      where that optimiser ended. The window slider clips everything more than that many
+      log-likelihood units below the maximum, which is what keeps the contours near the peak
+      from collapsing into a single blot.
+    </p>
+  </section>
+
+</main>
+
+<footer>
+  <p>
+    Static site &mdash; the whole thing is
+    <a href="https://d3js.org">d3</a> over about
+    <span class="mono">28&nbsp;MB</span> of pre-exported simulation output, no server.
+    Regenerate the payload with <span class="mono">Rscript export_data.R</span>.
+  </p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -254,3 +254,49 @@ footer a { color: var(--muted); }
   body { padding: 0 16px 40px; }
   .knobs input[type=range] { width: 170px; }
 }
+
+/* ---- site navigation ----------------------------------------------------- */
+/* One strip shared by the landing page and both explorers, so moving between
+   the studies reads as staying on one site. */
+.sitenav {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 16px 0 0;
+  display: flex;
+  gap: 22px;
+  font-family: var(--mono);
+  font-size: 13px;
+}
+.sitenav a { color: var(--muted); text-decoration: none; padding-bottom: 2px; }
+.sitenav a:hover { color: var(--ink); }
+.sitenav a.on { color: var(--ink); border-bottom: 1px solid var(--ink); }
+.sitenav + .masthead { padding-top: 26px; }
+
+/* ---- landing page ---------------------------------------------------------- */
+.studies {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  margin-top: 26px;
+}
+.study {
+  display: block;
+  border: 1px solid var(--rule);
+  background: var(--panel);
+  padding: 22px 24px 18px;
+  color: inherit;
+  text-decoration: none;
+}
+.study:hover { border-color: var(--ink); }
+.study h2 { font-size: 21px; font-weight: 400; margin: 0 0 10px; }
+.study p { color: var(--muted); font-size: 15px; margin: 0 0 12px; }
+.study table {
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  margin: 0 0 14px;
+}
+.study td { padding: 2px 14px 2px 0; vertical-align: top; }
+.study td:first-child { color: var(--muted); }
+.study .go { font-family: var(--mono); font-size: 13px; color: var(--ink); }
+@media (max-width: 1000px) { .studies { grid-template-columns: 1fr; } }
