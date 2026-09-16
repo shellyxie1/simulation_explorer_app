@@ -45,10 +45,19 @@
       <div class="text">
         <h2>Linear regression</h2>
         <p>
-          <span class="mono">$y = \beta_0 + \beta_1 x + \epsilon$</span> with
-          <span class="mono">$\beta = (2, -3)$</span>. A share of the errors is drawn around a
-          shifted mean. OLS and two ETEL fits see the same data.
+          A simple linear model <span class="mono">$y = \beta_0 + \beta_1 x + \epsilon$</span>
+          with true coefficients <span class="mono">$\beta = (2, -3)$</span>. In each sample a
+          share of the observations is replaced by outliers, whose errors are drawn from
+          <span class="mono">$N(\mu_{\epsilon_{\text{out}}}, 1)$</span>. Three estimators are
+          fitted to the identical dataset: ordinary least squares, ETEL from a biased start, and
+          ETEL started at the truth.
         </p>
+        <table>
+          <tr><td>contamination</td><td>1%, 5%, 10% of the sample</td></tr>
+          <tr><td>shift</td><td>$\mu_{\epsilon_{\text{out}}}$ from $-5$ to $5$ in steps of $1$</td></tr>
+          <tr><td>replicates</td><td>50 per setting, 1000 observations each</td></tr>
+          <tr><td>views</td><td>one sample &middot; sampling distributions &middot; weights &middot; likelihood surface</td></tr>
+        </table>
         <span class="go">open &rarr;</span>
       </div>
     </a>
@@ -65,11 +74,20 @@
       <div class="text">
         <h2>Log-normal distribution</h2>
         <p>
-          <span class="mono">$y \sim \mathrm{LN}(\mu, \sigma^2)$</span> with
-          <span class="mono">$(\mu, \sigma^2) = (0, 0.25)$</span>, fitted through its first
-          three raw moments. Outliers have their log-mean shifted by
-          <span class="mono">$\delta$</span>. Two ETEL fits, one from a biased start.
+          A log-normal sample <span class="mono">$y \sim \mathrm{LN}(\mu, \sigma^2)$</span>
+          with <span class="mono">$(\mu, \sigma^2) = (0, 0.25)$</span>, fitted through its
+          first three raw moments <span class="mono">$E[y^k] = \exp(k\mu + k^2\sigma^2/2)$</span>.
+          In each sample a share of the observations has its log-mean shifted by
+          <span class="mono">$\delta$</span>. Two ETEL fits see the identical dataset: one
+          started at the truth, one from a biased start 70% of the way to the edge of the
+          feasible region.
         </p>
+        <table>
+          <tr><td>contamination</td><td>1%, 5%, 10% of the sample</td></tr>
+          <tr><td>shift</td><td>$\delta$ from $-4$ to $4$, skipping $0$</td></tr>
+          <tr><td>replicates</td><td>50 per setting, 1000 observations each</td></tr>
+          <tr><td>views</td><td>one sample &middot; sampling distributions &middot; weights &middot; likelihood surface</td></tr>
+        </table>
         <span class="go">open &rarr;</span>
       </div>
     </a>

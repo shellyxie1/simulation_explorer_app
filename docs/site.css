@@ -300,6 +300,14 @@ footer a { color: var(--muted); }
 .study .text { padding: 20px 24px 22px; }
 .study h2 { font-size: 22px; font-weight: 400; margin: 0 0 8px; }
 .study p { color: var(--muted); font-size: 15px; margin: 0 0 14px; }
+.study table {
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  margin: 0 0 16px;
+}
+.study td { padding: 3px 14px 3px 0; vertical-align: top; }
+.study td:first-child { color: var(--muted); white-space: nowrap; }
 .study .go {
   font-family: var(--mono);
   font-size: 13px;
