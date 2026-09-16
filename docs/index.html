@@ -6,34 +6,19 @@
 <title>Outlier Simulation Explorers</title>
 <meta name="description" content="Two interactive simulation studies of how outliers move exponentially tilted empirical likelihood estimates: a linear regression and a log-normal distribution.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23fdfcf9'/%3E%3Cpath d='M4 26L28 6' stroke='%231f1d1a' stroke-width='2' stroke-dasharray='4 3'/%3E%3Ccircle cx='22' cy='23' r='4' fill='%23b8452f'/%3E%3C/svg%3E">
-<script>
-/* The linear explorer used to live at this root, so its deep links carried a
-   hash like #weights/05/-3/17 here. Forward those to where it lives now. */
-(function () {
-  if (/^#(sample|estimates|weights|likelihood)\//.test(location.hash))
-    location.replace("linear/" + location.hash);
-})();
-</script>
-<link rel="stylesheet" href="site.css">
+<link rel="stylesheet" href="site.css?v=3">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 </head>
-<body>
-
-<nav class="sitenav tabs" aria-label="Study">
-  <a href="linear/" class="tab">Linear regression</a>
-  <a href="lognormal/" class="tab">Log-normal</a>
-</nav>
+<body class="landing">
 
 <header class="masthead">
   <h1>Outlier Simulation Explorers</h1>
   <p class="lede">
-    Two simulation studies of the same question: what happens to an exponentially tilted
-    empirical likelihood (ETEL) fit when a share of the sample is contaminated? In each study
-    the contamination level, the size of the shift and the replicate are chosen by the reader,
-    and every view of that sample updates together. Both explorers are static pages over
-    pre-exported simulation output, so a particular sample can be linked to directly.
+    What happens to an exponentially tilted empirical likelihood (ETEL) fit when part of the
+    sample is contaminated? Two simulation studies, each with the same four views over the same
+    three knobs. Choose a study.
   </p>
 </header>
 
@@ -41,38 +26,52 @@
   <div class="studies">
 
     <a class="study" href="linear/">
-      <h2>Linear regression</h2>
-      <p>
-        A simple linear model <span class="mono">$y = \beta_0 + \beta_1 x + \epsilon$</span>
-        with <span class="mono">$\beta = (2, -3)$</span>. Outliers are observations whose error
-        is drawn around a shifted mean <span class="mono">$\mu_{\epsilon_{\text{out}}}$</span>.
-        Three estimators see the same data: ordinary least squares and two ETEL fits.
-      </p>
-      <table>
-        <tr><td>contamination</td><td>1%, 5%, 10%</td></tr>
-        <tr><td>shift</td><td>$\mu_{\epsilon_{\text{out}}}$ from $-5$ to $5$</td></tr>
-        <tr><td>replicates</td><td>50 of 1000 observations</td></tr>
-        <tr><td>views</td><td>one sample, sampling distributions, weights, likelihood surface</td></tr>
-      </table>
-      <span class="go">open the linear explorer &rarr;</span>
+      <svg class="pic" viewBox="0 0 320 170" aria-hidden="true">
+        <rect width="320" height="170" fill="#fdfcf9"/>
+        <line x1="30" y1="30" x2="290" y2="140" stroke="#1f1d1a" stroke-width="1.6" stroke-dasharray="6 4"/>
+        <g fill="#1f1d1a" fill-opacity="0.85">
+          <circle cx="45" cy="40" r="2.6"/><circle cx="62" cy="43" r="2.6"/><circle cx="78" cy="55" r="2.6"/>
+          <circle cx="95" cy="52" r="2.6"/><circle cx="110" cy="66" r="2.6"/><circle cx="128" cy="70" r="2.6"/>
+          <circle cx="142" cy="74" r="2.6"/><circle cx="160" cy="88" r="2.6"/><circle cx="176" cy="89" r="2.6"/>
+          <circle cx="192" cy="101" r="2.6"/><circle cx="208" cy="103" r="2.6"/><circle cx="226" cy="114" r="2.6"/>
+          <circle cx="240" cy="117" r="2.6"/><circle cx="258" cy="128" r="2.6"/><circle cx="276" cy="131" r="2.6"/>
+          <circle cx="70" cy="49" r="2.6"/><circle cx="150" cy="82" r="2.6"/><circle cx="215" cy="110" r="2.6"/>
+        </g>
+        <g fill="#b8452f">
+          <circle cx="90" cy="118" r="4"/><circle cx="135" cy="132" r="4"/><circle cx="200" cy="150" r="4"/>
+          <circle cx="250" cy="60" r="4"/><circle cx="170" cy="30" r="4"/>
+        </g>
+      </svg>
+      <div class="text">
+        <h2>Linear regression</h2>
+        <p>
+          <span class="mono">$y = \beta_0 + \beta_1 x + \epsilon$</span> with
+          <span class="mono">$\beta = (2, -3)$</span>. A share of the errors is drawn around a
+          shifted mean. OLS and two ETEL fits see the same data.
+        </p>
+        <span class="go">open &rarr;</span>
+      </div>
     </a>
 
     <a class="study" href="lognormal/">
-      <h2>Log-normal distribution</h2>
-      <p>
-        A log-normal sample <span class="mono">$y \sim \mathrm{LN}(\mu, \sigma^2)$</span> with
-        <span class="mono">$(\mu, \sigma^2) = (0, 0.25)$</span>, fitted through its first three
-        raw moments. Outliers have their log-mean shifted by <span class="mono">$\delta$</span>.
-        Two ETEL fits see the same data, one started at the truth and one from a biased start
-        near the edge of the feasible region.
-      </p>
-      <table>
-        <tr><td>contamination</td><td>1%, 5%, 10%</td></tr>
-        <tr><td>shift</td><td>$\delta$ from $-4$ to $4$, skipping $0$</td></tr>
-        <tr><td>replicates</td><td>50 of 1000 observations</td></tr>
-        <tr><td>views</td><td>one sample, sampling distributions, weights, likelihood surface</td></tr>
-      </table>
-      <span class="go">open the log-normal explorer &rarr;</span>
+      <svg class="pic" viewBox="0 0 320 170" aria-hidden="true">
+        <rect width="320" height="170" fill="#fdfcf9"/>
+        <path d="M22 150 C 30 150, 34 40, 52 32 C 70 24, 84 120, 120 138 C 150 148, 190 150, 298 150"
+              fill="#36648b" fill-opacity="0.16" stroke="#36648b" stroke-width="1.8"/>
+        <path d="M150 150 C 165 150, 178 96, 205 92 C 232 88, 250 140, 298 150"
+              fill="#b8452f" fill-opacity="0.16" stroke="#b8452f" stroke-width="1.8"/>
+        <line x1="22" y1="150" x2="298" y2="150" stroke="#1f1d1a" stroke-width="1"/>
+      </svg>
+      <div class="text">
+        <h2>Log-normal distribution</h2>
+        <p>
+          <span class="mono">$y \sim \mathrm{LN}(\mu, \sigma^2)$</span> with
+          <span class="mono">$(\mu, \sigma^2) = (0, 0.25)$</span>, fitted through its first
+          three raw moments. Outliers have their log-mean shifted by
+          <span class="mono">$\delta$</span>. Two ETEL fits, one from a biased start.
+        </p>
+        <span class="go">open &rarr;</span>
+      </div>
     </a>
 
   </div>
@@ -82,8 +81,6 @@
   <p>
     Static site &mdash; both explorers are
     <a href="https://d3js.org">d3</a> over pre-exported simulation output, no server.
-    Regenerate either payload with <span class="mono">Rscript export_data.R</span> inside
-    its folder.
   </p>
 </footer>
 
