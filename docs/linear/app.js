@@ -1204,6 +1204,14 @@ function weightsReadout(i, rec, gt, pt, res) {
    view: likelihood surface
    =========================================================================== */
 
+/* d3.contours treats grid value k as sitting at the centre of cell k, so
+   grid coordinate g maps to index g - 0.5. Every conversion from contour
+   coordinates to (β₀, β₁) goes through these, so the rings, the fill and
+   the labels line up with the max and truth markers. */
+const HALF = 0.5;
+const gxToB0 = gx => meta.th1[0] + (gx - HALF) * d1;
+const gyToB1 = gy => meta.th2[0] + (gy - HALF) * d2;
+
 function renderLikelihood(rec) {
   // The export is row-major over th1; d3.contours wants the first axis varying
   // fastest, so transpose once here and th1 becomes the horizontal axis.
@@ -1280,12 +1288,12 @@ function drawLLSurface(zc, info) {
     const padX = (gx1 - gx0) * 0.08 || 1;
     const padY = (gy1 - gy0) * 0.08 || 1;
     dom1 = [
-      Math.max(meta.th1[0], meta.th1[0] + (gx0 - padX) * d1),
-      Math.min(meta.th1[n1 - 1], meta.th1[0] + (gx1 + padX) * d1)
+      Math.max(meta.th1[0], gxToB0(gx0 - padX)),
+      Math.min(meta.th1[n1 - 1], gxToB0(gx1 + padX))
     ];
     dom2 = [
-      Math.max(meta.th2[0], meta.th2[0] + (gy0 - padY) * d2),
-      Math.min(meta.th2[n2 - 1], meta.th2[0] + (gy1 + padY) * d2)
+      Math.max(meta.th2[0], gyToB1(gy0 - padY)),
+      Math.min(meta.th2[n2 - 1], gyToB1(gy1 + padY))
     ];
   }
   const xs = d3.scaleLinear(dom1, [m.l, W - m.r]);
@@ -1293,7 +1301,7 @@ function drawLLSurface(zc, info) {
 
   // Contour coordinates arrive in grid-index units.
   const path = d3.geoPath(d3.geoTransform({
-    point(x, y) { this.stream.point(xs(meta.th1[0] + x * d1), ys(meta.th2[0] + y * d2)); }
+    point(gx, gy) { this.stream.point(xs(gxToB0(gx)), ys(gyToB1(gy))); }
   }));
 
   const fill = d3.scaleLinear()
@@ -1380,7 +1388,7 @@ function drawLLSurface(zc, info) {
    possible angle. */
 function labelContours(g, contours, xs, ys, x0, y0) {
   const layer = g.append("g");
-  const px = ([gx, gy]) => [xs(meta.th1[0] + gx * d1), ys(meta.th2[0] + gy * d2)];
+  const px = ([gx, gy]) => [xs(gxToB0(gx)), ys(gyToB1(gy))];
   const lo = xs.range()[0], hi = xs.range()[1];
   const dir = (hi - x0) >= (x0 - lo) ? 1 : -1;
 
