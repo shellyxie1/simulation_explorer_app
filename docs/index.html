@@ -6,7 +6,7 @@
 <title>Outlier Simulation Explorers</title>
 <meta name="description" content="Two interactive simulation studies of how outliers move exponentially tilted empirical likelihood estimates: a linear regression and a log-normal distribution.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23fdfcf9'/%3E%3Cpath d='M4 26L28 6' stroke='%231f1d1a' stroke-width='2' stroke-dasharray='4 3'/%3E%3Ccircle cx='22' cy='23' r='4' fill='%23b8452f'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="site.css?v=3">
+<link rel="stylesheet" href="site.css?v=5">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
@@ -18,7 +18,7 @@
   <p class="lede">
     What happens to an exponentially tilted empirical likelihood (ETEL) fit when part of the
     sample is contaminated? Two simulation studies, each with the same four views over the same
-    three knobs. Choose a study.
+    three knobs, plus a fifth on the BETEL posterior means. Choose a study.
   </p>
 </header>
 
@@ -56,7 +56,7 @@
           <tr><td>contamination</td><td>1%, 5%, 10% of the sample</td></tr>
           <tr><td>shift</td><td>$\mu_{\epsilon_{\text{out}}}$ from $-5$ to $5$ in steps of $1$</td></tr>
           <tr><td>replicates</td><td>50 per setting, 1000 observations each</td></tr>
-          <tr><td>views</td><td>one sample &middot; sampling distributions &middot; weights &middot; likelihood surface</td></tr>
+          <tr><td>views</td><td>one sample &middot; posterior means &middot; sampling distributions &middot; weights &middot; likelihood surface</td></tr>
         </table>
         <span class="go">open &rarr;</span>
       </div>
@@ -86,7 +86,7 @@
           <tr><td>contamination</td><td>1%, 5%, 10% of the sample</td></tr>
           <tr><td>shift</td><td>$\delta$ from $-4$ to $4$, skipping $0$</td></tr>
           <tr><td>replicates</td><td>50 per setting, 1000 observations each</td></tr>
-          <tr><td>views</td><td>one sample &middot; sampling distributions &middot; weights &middot; likelihood surface</td></tr>
+          <tr><td>views</td><td>one sample &middot; posterior means &middot; sampling distributions &middot; weights &middot; likelihood surface</td></tr>
         </table>
         <span class="go">open &rarr;</span>
       </div>

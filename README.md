@@ -11,7 +11,9 @@ empirical likelihood (ETEL) estimates, published as one static site:
 Each study is 3 contamination levels × a sweep of the shift × 50 replicates of
 1000 observations, and each explorer has the same four views: one sample, the
 sampling distributions of the estimates, the ETEL weights, and the
-log-likelihood surface. The three global knobs are written into the URL, so a
+log-likelihood surface. A fifth view, *Posterior means* (the second tab), shows kernel densities
+of the BETEL posterior means over the 50 replications, clean against 10%
+contaminated, from the thesis MCMC runs. The three global knobs are written into the URL, so a
 particular sample can be linked to directly, for example
 `lognormal/#weights/05/-3/17`.
 
@@ -26,18 +28,20 @@ docs/                  the site — plain static files, no build step
   d3.min.js            vendored (v7.9.0), shared, so the site runs offline
   linear/
     index.html, app.js
-    data/              meta.json, coefs.json, rep/*.bin
+    data/              meta.json, coefs.json, postmean.json, rep/*.bin
   lognormal/
     index.html, app.js
-    data/              meta.json, coefs.json, rep/*.bin
+    data/              meta.json, coefs.json, postmean.json, rep/*.bin
 linear/                the linear-regression pipeline
   export_data.R        outputs/*.rds -> ../docs/linear/data/   (base R only)
+  export_postmean.R    thesis MCMC draws -> ../docs/linear/data/postmean.json
   app.R                the original Shiny app, kept as the reference for each view
   prepare_lite_outputs.R
   outputs/             the simulation output the export reads
 lognormal/             the log-normal pipeline
   00_*.R … 06_*.R      simulation, ETEL fitting, log-likelihood surface
   export_data.R        outputs/*.rds -> ../docs/lognormal/data/   (base R only)
+  export_postmean.R    thesis MCMC means -> ../docs/lognormal/data/postmean.json
   app.R                the original Shiny app
   outputs/
 ```
@@ -74,6 +78,18 @@ byte offsets, so a change in `n_obs` or the parameter grid needs no change on
 the JavaScript side. The log-normal grid additionally has infeasible cells
 (where the zero vector is outside the convex hull of the moment conditions);
 they travel as `NaN` plus an explicit `hull` flag and are shaded on the surface.
+
+The posterior means have one more export each, run the same way:
+
+```sh
+cd linear    && Rscript export_postmean.R
+cd lognormal && Rscript export_postmean.R
+```
+
+These read the MCMC output from the thesis folder (`~/Desktop/thesis/...`,
+set at the top of each script), not from `outputs/`, because the draws are too
+large to keep here. Only the posterior means, one per replication, are written
+to `docs/*/data/postmean.json`; the densities are drawn in the browser.
 
 ## Deploying
 

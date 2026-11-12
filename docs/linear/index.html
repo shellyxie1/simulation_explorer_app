@@ -7,7 +7,7 @@
 <meta name="description" content="How outliers move OLS and exponentially tilted empirical likelihood estimates in a simple linear model.">
 <!-- Inline so the folder stays four files and the browser stops asking. -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23fdfcf9'/%3E%3Cpath d='M4 26L28 6' stroke='%231f1d1a' stroke-width='2' stroke-dasharray='4 3'/%3E%3Ccircle cx='22' cy='23' r='4' fill='%23b8452f'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="../site.css?v=3">
+<link rel="stylesheet" href="../site.css?v=5">
 <!-- d3 vendored rather than pulled from a CDN: the site is a folder of static
      files and should keep working from a local checkout with no network. -->
 <script src="../d3.min.js"></script>
@@ -97,6 +97,29 @@ window.MathJax = {
       The dashed line is the truth. Each solid line is one estimator's fit to
       <em>this</em> sample. In the panel on the right the pale ticks are that
       estimator's other 49 replicates at the same setting. Hover a point to follow it.
+    </p>
+  </section>
+
+  <!-- ---- posterior means ------------------------------------------------- -->
+  <section class="view" data-view="posterior">
+    <div class="stage post-stage">
+      <div class="left">
+        <h2>Kernel densities of the BETEL posterior means over 50 replications</h2>
+        <div class="figure" id="postDens"></div>
+        <div class="readout" id="postReadout"></div>
+      </div>
+    </div>
+    <div class="knobs" id="postKnobs"></div>
+    <p class="caption">
+      Each replication's posterior mean is the average of its BETEL chain after burn-in, and each
+      curve is a Gaussian kernel density over the 50 posterior means of one scenario, with the same
+      bandwidth rule as the thesis figure. The dashed rule is the true value. The ticks under each
+      panel are the individual replications: hover one to read it, and the same replication is
+      marked in both panels. These are the Chapter 3 scenarios, in which 10% of the errors are
+      drawn from <span class="mono">$N(5, 1)$</span>. They come from a separate simulation from
+      the sweep in the other tabs, so the outlier, shift and replicate knobs do not apply here. A
+      posterior mean far outside the rest is drawn as an arrow at the edge of the panel instead
+      of stretching the axis; the density still counts it.
     </p>
   </section>
 

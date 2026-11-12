@@ -7,7 +7,7 @@
 <meta name="description" content="How log-scale outliers move exponentially tilted empirical likelihood estimates of a log-normal distribution.">
 <!-- Inline so the folder stays four files and the browser stops asking. -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23fdfcf9'/%3E%3Cpath d='M4 26 Q10 4 16 20 T28 26' stroke='%231f1d1a' stroke-width='2' fill='none'/%3E%3Ccircle cx='24' cy='9' r='4' fill='%23b8452f'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="../site.css?v=3">
+<link rel="stylesheet" href="../site.css?v=5">
 <!-- d3 vendored rather than pulled from a CDN: the site is a folder of static
      files and should keep working from a local checkout with no network. -->
 <script src="../d3.min.js"></script>
@@ -105,6 +105,29 @@ window.MathJax = {
       <span class="mono">$\mathrm{LN}(\mu, \sigma^2)$</span> and the contaminated component
       <span class="mono">$\mathrm{LN}(\mu + \delta, \sigma^2)$</span>, each as a density on the
       raw scale. Hover a point to follow it.
+    </p>
+  </section>
+
+  <!-- ---- posterior means ------------------------------------------------- -->
+  <section class="view" data-view="posterior">
+    <div class="stage post-stage">
+      <div class="left">
+        <h2>Kernel densities of the BETEL posterior means over 50 replications</h2>
+        <div class="figure" id="postDens"></div>
+        <div class="readout" id="postReadout"></div>
+      </div>
+    </div>
+    <div class="knobs" id="postKnobs"></div>
+    <p class="caption">
+      Each replication's posterior mean is the average of its BETEL chain after burn-in, and each
+      curve is a Gaussian kernel density over the 50 posterior means of one scenario, with the same
+      bandwidth rule as the thesis figure. The dashed rule is the true value. LN-N1000 has no
+      outliers; in LN-N1000-C10-S3, 10% of each sample of 1000 has its log-mean shifted by
+      <span class="mono">$\delta = 3$</span>. The ticks under each panel are the individual
+      replications: hover one to read it, and the same replication is marked in both panels. The
+      contaminated datasets are the <span class="mono">10%</span>,
+      <span class="mono">$\delta = 3$</span> samples of the other tabs, so clicking a teal tick
+      opens that sample in <em>Simulated data</em>. The clean datasets are not part of that sweep.
     </p>
   </section>
 

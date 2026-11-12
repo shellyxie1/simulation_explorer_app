@@ -1,7 +1,7 @@
 /* ===========================================================================
    Outlier Simulation Explorer
 
-   Four views over one pre-exported simulation. The whole site is static: the
+   Five views over pre-exported simulation output. The whole site is static: the
    two JSON files below are the entire index, and each replicate's per-
    observation columns arrive as a ~19 KB binary fetched on demand.
 
@@ -33,6 +33,7 @@ const GEL_METHODS = METHODS.filter(m => m.key !== "OLS");
 
 const VIEWS = [
   { key: "sample",     label: "Simulated data" },
+  { key: "posterior",  label: "Posterior means" },
   { key: "estimates",  label: "Density of the estimates" },
   { key: "weights",    label: "Inner products and Implied probabilities" },
   { key: "likelihood", label: "Likelihood surface" }
@@ -58,6 +59,8 @@ const state = {
   trim: true,
   logWeights: false,
   llWindow: 340,
+  postN: 1000,
+  postShow: new Set(["clean", "cont"]),
   hover: null
 };
 
@@ -277,6 +280,7 @@ function printPdf(svg, id) {
 /* Name files after the cell they came from, so a folder of exports is still
    readable in a month. */
 function figureName(id) {
+  if (state.view === "posterior") return `${id}-n${state.postN}`;
   const pct = meta.pct[state.iPct];
   const eps = meta.eps_slug[state.iEps];
   return `${id}-${pct}pct-eps${eps}-rep${meta.sim[state.iSim]}`;
@@ -403,14 +407,14 @@ function pad(extent, frac = 0.05) {
 /* Gaussian kernel density on a fixed grid. Silverman's rule with the robust
    spread, which keeps a run of 50 estimates from being oversmoothed by the one
    replicate that blew up. */
-function kde(values, grid) {
+function kde(values, grid, bwFixed) {
   const n = values.length;
   const sorted = Float64Array.from(values).sort(d3.ascending);
   const sd = d3.deviation(values) || 0;
   const iqr = d3.quantileSorted(sorted, 0.75) - d3.quantileSorted(sorted, 0.25);
   const spread = Math.min(sd || Infinity, (iqr / 1.349) || Infinity);
   const range = (grid[grid.length - 1] - grid[0]) || 1;
-  const bw = Math.max(0.9 * (isFinite(spread) ? spread : range / 6) * Math.pow(n, -0.2),
+  const bw = bwFixed || Math.max(0.9 * (isFinite(spread) ? spread : range / 6) * Math.pow(n, -0.2),
                       range / 400);
 
   const out = new Float64Array(grid.length);
@@ -1486,6 +1490,305 @@ function drawLLProfiles(z, info) {
 }
 
 /* ===========================================================================
+   view: posterior means
+   =========================================================================== */
+
+/* The Chapter 3 BETEL chains, from data/postmean.json (export_postmean.R): one
+   posterior mean per replication, for the clean and the 10%-contaminated
+   scenario at each sample size. It is a separate simulation from the sweep the
+   other views read, so the global knobs are hidden here. Fill colours are the
+   thesis figure's (ggplot's defaults); ticks and text use a darker shade so
+   they hold up on paper. */
+const SCENARIOS = [
+  { key: "clean", contaminated: false, colour: "#f8766d" },
+  { key: "cont",  contaminated: true,  colour: "#00bfc4" }
+];
+const POST_PARAMS = [
+  { key: "b0", label: "β₀", tex: "$\\beta_0$" },
+  { key: "b1", label: "β₁", tex: "$\\beta_1$" }
+];
+const inkOf = s => d3.color(s.colour).darker(0.6).formatHex();
+const fBig = v => (Math.abs(v) >= 1000 ? d3.format(",.0f")(v) : f3(v));
+
+let postPromise = null;
+function loadPost() {
+  if (!postPromise) {
+    postPromise = fetch("data/postmean.json").then(r => {
+      if (!r.ok) throw new Error(`data/postmean.json: ${r.status}`);
+      return r.json();
+    });
+    postPromise.catch(() => { postPromise = null; });   // try again next visit
+  }
+  return postPromise;
+}
+
+/* R's bw.nrd0, the default of density() and so of geom_density in the thesis
+   figure: 0.9 min(sd, IQR / 1.34) n^(-1/5). */
+function bwNrd0(values) {
+  const s = Float64Array.from(values).sort(d3.ascending);
+  const sd = d3.deviation(values) || 0;
+  const iqr = d3.quantileSorted(s, 0.75) - d3.quantileSorted(s, 0.25);
+  const lo = Math.min(sd, iqr / 1.34) || sd || Math.abs(s[0]) || 1;
+  return 0.9 * lo * Math.pow(values.length, -0.2);
+}
+
+/* A chain that ran away (LR-N100-C10 has one, near 5e5) would stretch the axis
+   until the other posterior means sat in a single pixel.
+   The axis is fitted to the bulk -- within 1,000 IQRs of the pooled quartiles
+   -- and anything beyond is drawn as an arrow at the panel edge. The cut is
+   that loose on purpose: genuine posterior means reach about 130 IQRs (the
+   log-normal sigma^2 chains on the plateau), the runaway chain over 4,000.
+   The density still counts it: its share of the area simply lies off screen. */
+function postFence(values) {
+  const s = Float64Array.from(values).sort(d3.ascending);
+  const q1 = d3.quantileSorted(s, 0.25), q3 = d3.quantileSorted(s, 0.75);
+  const k = 1000 * ((q3 - q1) || Math.abs(q1) || 1);
+  return [q1 - k, q3 + k];
+}
+
+function postScenarios(pm) {
+  return pm.scenarios
+    .filter(s => s.n === state.postN)
+    .map(s => ({ ...s, ...SCENARIOS.find(c => c.contaminated === s.contaminated) }));
+}
+
+/* Only the log-normal explorer can link a replication to its sample; the
+   regression chains come from a different simulation. */
+function postSampleLink() { return null; }
+
+function renderPosterior(pm) {
+  if (!pm.n.includes(state.postN)) state.postN = pm.n[pm.n.length - 1];
+  const scen = postScenarios(pm);
+  buildPostKnobs(pm, scen);
+  drawPostDens(pm, scen.filter(s => state.postShow.has(s.key)));
+}
+
+function buildPostKnobs(pm, scen) {
+  const pk = d3.select("#postKnobs");
+  pk.selectAll("*").remove();
+
+  if (pm.n.length > 1) {
+    const c = pk.append("span").attr("class", "ctl");
+    c.append("span").attr("class", "lbl").text("sample size");
+    c.append("span").attr("id", "postNTabs").attr("class", "tabs");
+    tabGroup("#postNTabs", pm.n.map(n => ({ label: `n = ${n}`, n })),
+      d => d.n === state.postN,
+      d => { state.postN = d.n; render(); });
+  }
+
+  // Same idiom as the method toggles, and likewise the last one cannot go.
+  const c = pk.append("span").attr("class", "ctl");
+  c.append("span").attr("class", "lbl").text("scenarios");
+  c.append("span").attr("class", "legend scen")
+    .selectAll("button").data(scen).join("button")
+    .attr("class", d => "item" + (state.postShow.has(d.key) ? " on" : ""))
+    .attr("type", "button")
+    .style("color", d => state.postShow.has(d.key) ? inkOf(d) : null)
+    .html(d => `<span class="swatch"></span>${d.label}`)
+    .on("click", (_, d) => {
+      if (state.postShow.has(d.key)) {
+        if (state.postShow.size > 1) state.postShow.delete(d.key);
+      } else {
+        state.postShow.add(d.key);
+      }
+      render();
+    });
+}
+
+function drawPostDens(pm, shown) {
+  const W = 900, H = 440, gutter = 40, RUG = 16;
+  const facetW = (W - gutter) / 2;
+  const strip = RUG * shown.length + 4;     // one rug row per scenario
+  const svg = frame("#postDens", W, H);
+
+  /* Ticks of the same replication in both facets share a key, so hovering
+     one marks where that replication's chain sat for both coefficients. */
+  const ticks = new Map();
+  const rules = [];
+  let current = null;
+
+  function applyHover(h) {
+    current = h;
+    const key = h ? `${h.s.key}|${h.i}` : null;
+    ticks.forEach((els, k) => els.forEach(el => {
+      const on = k === key;
+      el.attr("stroke-opacity", key == null || on ? 1 : 0.3)
+        .attr("fill-opacity", key == null || on ? 1 : 0.3)
+        .attr("stroke-width", on ? 2.6 : 1.3);
+      if (on) el.raise();
+    }));
+    rules.forEach(fn => fn(h));
+    postReadout(shown, h);
+  }
+
+  POST_PARAMS.forEach((p, fi) => {
+    const truth = pm.truth[p.key];
+    const m = { l: fi === 0 ? 64 : 34, r: 12, t: 26, b: 58 };
+    const x0 = fi * (facetW + gutter);
+    const g = svg.append("g").attr("transform", `translate(${x0},0)`);
+    const xMin = m.l, xMax = facetW - m.r;
+    const yBase = H - m.b - strip;          // density baseline; the rug sits below
+
+    const pooled = shown.flatMap(s => s[p.key]);
+    const [fLo, fHi] = postFence(pooled);
+    const onScale = pooled.filter(v => v >= fLo && v <= fHi).concat([truth]);
+    const bw = new Map(shown.map(s => [s.key, bwNrd0(s[p.key])]));
+    const bwMax = d3.max(shown, s => bw.get(s.key));
+    const ext = d3.extent(onScale);
+    const dom = [ext[0] - 3 * bwMax, ext[1] + 3 * bwMax];
+    const xs = d3.scaleLinear(dom, [xMin, xMax]);
+
+    const NG = 512;                         // as density(): narrow peaks keep their height
+    const grid = d3.range(NG).map(i => dom[0] + (dom[1] - dom[0]) * i / (NG - 1));
+    const dens = shown.map(s => ({ s, z: kde(s[p.key], grid, bw.get(s.key)) }));
+    const top = d3.max(dens, d => d3.max(d.z)) || 1;
+    const ys = d3.scaleLinear([0, top * 1.06], [yBase, m.t]);
+
+    g.append("rect")
+      .attr("x", xMin).attr("y", m.t)
+      .attr("width", xMax - xMin).attr("height", H - m.b - m.t)
+      .attr("fill", PAPER).attr("stroke", RULE);
+    g.append("line")
+      .attr("x1", xMin).attr("x2", xMax).attr("y1", yBase).attr("y2", yBase)
+      .attr("stroke", RULE).attr("stroke-width", 0.7);
+
+    const clip = `clip-post-${fi}`;
+    g.append("clipPath").attr("id", clip).append("rect")
+      .attr("x", xMin).attr("y", m.t)
+      .attr("width", xMax - xMin).attr("height", yBase - m.t);
+    const plot = g.append("g").attr("clip-path", `url(#${clip})`);
+
+    const area = d3.area()
+      .x((_, i) => xs(grid[i])).y0(yBase).y1(v => ys(v)).curve(d3.curveBasis);
+    const outline = d3.line()
+      .x((_, i) => xs(grid[i])).y(v => ys(v)).curve(d3.curveBasis);
+    dens.forEach(({ s, z }) => {
+      plot.append("path").datum(z).attr("d", area)
+        .attr("fill", s.colour).attr("fill-opacity", 0.5).attr("stroke", "none");
+      plot.append("path").datum(z).attr("d", outline)
+        .attr("fill", "none").attr("stroke", INK).attr("stroke-width", 1);
+    });
+
+    g.append("line")
+      .attr("x1", xs(truth)).attr("x2", xs(truth))
+      .attr("y1", m.t).attr("y2", H - m.b)
+      .attr("stroke", CLAY).attr("stroke-dasharray", "5 4").attr("stroke-width", 1.1);
+
+    const rule = g.append("line")
+      .attr("y1", m.t).attr("y2", yBase)
+      .attr("stroke", INK).attr("stroke-width", 1).attr("stroke-dasharray", "2 3")
+      .style("display", "none");
+    rules.push(h => {
+      const v = h ? h.s[p.key][h.i] : null;
+      if (v == null || v < dom[0] || v > dom[1]) { rule.style("display", "none"); return; }
+      rule.attr("x1", xs(v)).attr("x2", xs(v)).style("display", null);
+    });
+
+    // The rug: every replication's posterior mean, one row per scenario.
+    const off = [];
+    shown.forEach((s, ri) => {
+      const y0 = yBase + 3 + ri * RUG, y1 = y0 + RUG - 4, ym = (y0 + y1) / 2;
+      s[p.key].forEach((v, i) => {
+        let el;
+        if (v < dom[0] || v > dom[1]) {
+          const right = v > dom[1];
+          const xe = right ? xMax - 2 : xMin + 2, dx = right ? -8 : 8;
+          el = g.append("path")
+            .attr("d", `M${xe + dx},${y0}L${xe},${ym}L${xe + dx},${y1}Z`)
+            .attr("fill", inkOf(s)).attr("stroke", "none");
+          off.push({ s, i, v, right });
+        } else {
+          el = g.append("line")
+            .attr("x1", xs(v)).attr("x2", xs(v)).attr("y1", y0).attr("y2", y1)
+            .attr("stroke", inkOf(s)).attr("stroke-width", 1.3);
+        }
+        const key = `${s.key}|${i}`;
+        if (!ticks.has(key)) ticks.set(key, []);
+        ticks.get(key).push(el);
+      });
+    });
+
+    g.append("text")
+      .attr("x", xMin).attr("y", 14)
+      .attr("font-size", 12).attr("fill", INK)
+      .text(`posterior mean of ${p.label}, true value ${truth}`);
+
+    // Say what the arrows stand for: right-hand ones beside the title, left-hand
+    // ones inside the panel, clear of it.
+    [true, false].forEach(right => {
+      const these = off.filter(o => o.right === right);
+      if (!these.length) return;
+      const txt = these.length === 1
+        ? `${these[0].s.label} rep ${these[0].s.sim[these[0].i]}: ${fBig(these[0].v)}`
+        : `${these.length} off scale`;
+      g.append("text")
+        .attr("x", right ? xMax : xMin + 4).attr("y", right ? 14 : m.t + 14)
+        .attr("text-anchor", right ? "end" : "start")
+        .attr("font-size", 11).attr("fill", inkOf(these[0].s))
+        .text(right ? `${txt} →` : `← ${txt}`);
+    });
+
+    g.append("g").attr("transform", `translate(0,${H - m.b})`)
+      .call(d3.axisBottom(xs).ticks(6).tickSize(4));
+    g.append("g").attr("transform", `translate(${xMin},0)`)
+      .call(d3.axisLeft(ys).ticks(5).tickSize(4));
+    axisLabel(g, (xMin + xMax) / 2, H - 14, p.tex);
+    if (fi === 0) axisLabel(g, 16, (m.t + yBase) / 2, "Posterior mean density", "middle", -90);
+
+    /* Hover picks the nearest tick in the row under the pointer, so ticks a
+       pixel apart can still be told apart. */
+    g.append("rect")
+      .attr("x", xMin).attr("y", yBase)
+      .attr("width", xMax - xMin).attr("height", H - m.b - yBase)
+      .attr("fill", "transparent")
+      .on("pointermove", function (ev) {
+        const [px, py] = d3.pointer(ev, g.node());
+        const ri = Math.max(0, Math.min(shown.length - 1, Math.floor((py - yBase - 3) / RUG)));
+        const s = shown[ri];
+        const xOf = v => xs(Math.max(dom[0], Math.min(dom[1], v)));
+        const i = d3.minIndex(s[p.key], v => Math.abs(xOf(v) - px));
+        d3.select(this).style("cursor", postSampleLink(s, i) ? "pointer" : null);
+        applyHover({ s, i });
+      })
+      .on("pointerleave", () => applyHover(null))
+      .on("click", () => {
+        const L = current && postSampleLink(current.s, current.i);
+        if (!L) return;
+        Object.assign(state, L, { view: "sample" });
+        render();
+      });
+  });
+
+  styleAxes(svg);
+  postReadout(shown, null);
+}
+
+function postReadout(shown, h) {
+  const el = d3.select("#postReadout");
+  const sep = `<span class="sep">|</span>`;
+  if (h) {
+    const bits = [
+      `<b style="color:${inkOf(h.s)}">${h.s.label}</b>`,
+      `<span class="dim">replication</span> ${h.s.sim[h.i]}`
+    ];
+    POST_PARAMS.forEach(p =>
+      bits.push(`<span class="dim">posterior mean of ${p.label}</span> ${fBig(h.s[p.key][h.i])}`));
+    if (postSampleLink(h.s, h.i)) bits.push(`<span class="dim">click to open this sample</span>`);
+    el.html(bits.join(sep));
+    return;
+  }
+  el.html(shown.map(s => {
+    const bits = [`<b style="color:${inkOf(s)}">${s.label}</b>`];
+    POST_PARAMS.forEach(p => {
+      const v = s[p.key];
+      bits.push(`<span class="dim">${p.label} mean</span> ${fBig(d3.mean(v))}` +
+                ` <span class="dim">sd</span> ${fBig(d3.deviation(v))}`);
+    });
+    return bits.join(sep);
+  }).join("<br>"));
+}
+
+/* ===========================================================================
    controls
    =========================================================================== */
 
@@ -1611,6 +1914,8 @@ function syncKnobs() {
   d3.select("#simRange").node().parentNode.style.display = onEst ? "none" : "";
   d3.select("#epsRange").node().parentNode.style.display = onEst ? "none" : "";
   d3.select("#epsRangeCtl").style("display", onEst ? "" : "none");
+  // The posterior view reads its own simulation, so none of the global knobs apply.
+  d3.select("#globalKnobs").style("display", state.view === "posterior" ? "none" : "");
 
   d3.select("#epsLoRange").property("value", state.epsLo);
   d3.select("#epsHiRange").property("value", state.epsHi);
@@ -1627,7 +1932,7 @@ function syncKnobs() {
   d3.select("#epsRangeVal")
     .text(`${fg(meta.eps[state.epsLo])} … ${fg(meta.eps[state.epsHi])}`);
   d3.select("#llWindowVal").text(state.llWindow);
-  d3.selectAll(".legend .item")
+  d3.selectAll(".legend:not(.scen) .item")
     .classed("on", d => state.methods.has(d.key))
     .style("color", d => state.methods.has(d.key) ? d.colour : null);
   d3.selectAll("#gelTabs .tab").classed("on", d => d.key === state.gel);
@@ -1640,7 +1945,8 @@ function syncKnobs() {
    The three global knobs plus the view go in the hash, so a particular
    replicate can be sent to someone. */
 function writeHash() {
-  const h = `#${state.view}/${meta.pct[state.iPct]}/${meta.eps_slug[state.iEps]}/${meta.sim[state.iSim]}`;
+  const h = `#${state.view}/${meta.pct[state.iPct]}/${meta.eps_slug[state.iEps]}/${meta.sim[state.iSim]}` +
+            (state.view === "posterior" ? `/n${state.postN}` : "");
   if (location.hash !== h) history.replaceState(null, "", h);
 }
 
@@ -1652,6 +1958,7 @@ function readHash() {
   const ip = meta.pct.indexOf(p);          if (ip >= 0) state.iPct = ip;
   const ie = meta.eps_slug.indexOf(e);     if (ie >= 0) state.iEps = ie;
   const is = meta.sim.indexOf(+s);         if (is >= 0) state.iSim = is;
+  if (/^n\d+$/.test(parts[4] || "")) state.postN = +parts[4].slice(1);
 }
 
 /* ===========================================================================
@@ -1670,6 +1977,20 @@ async function render() {
   if (state.view === "estimates") {
     renderEstimates();
     prefetch();
+    return;
+  }
+
+  if (state.view === "posterior") {
+    let pm;
+    try {
+      pm = await loadPost();
+    } catch (err) {
+      if (token !== renderToken) return;
+      d3.select("#postDens").html(`<p class="caption">Could not load data/postmean.json.</p>`);
+      return;
+    }
+    if (token !== renderToken) return;
+    renderPosterior(pm);
     return;
   }
 
