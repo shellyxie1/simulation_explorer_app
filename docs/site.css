@@ -317,3 +317,38 @@ footer a { color: var(--muted); }
 }
 .study:hover .go { color: var(--clay); border-color: var(--clay); }
 @media (max-width: 1000px) { .studies { grid-template-columns: 1fr; } }
+
+/* ---- separation-conditions view ------------------------------------------- */
+/* A reference table rather than a figure: mono digits, right-aligned, the
+   column groups told apart by a faint alternating panel tint rather than
+   rules, and a yes/no that reads at a glance. */
+
+.sepcond .study-title { margin: 8px 0 8px; font-size: 22px; font-weight: 400; color: var(--ink); }
+.sepcond .study-title .dim { font-size: 15px; color: var(--muted); }
+.sepcond .sep-knobs { margin-top: 10px; }
+.sepcond .sep-knobs .dl-csv { border-right-width: 1px; }
+
+.tablewrap { overflow-x: auto; margin-top: 14px; border: 1px solid var(--rule); }
+table.sep {
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  width: 100%;
+}
+table.sep th, table.sep td { padding: 4px 7px; white-space: nowrap; }
+table.sep .r { text-align: right; }
+table.sep .c { text-align: center; }
+table.sep thead th { font-weight: 400; color: var(--muted); vertical-align: bottom; }
+table.sep thead .groups th {
+  text-align: left; color: var(--ink); border-bottom: 1px solid var(--rule); padding-top: 9px;
+}
+table.sep thead .heads th { border-bottom: 1px solid var(--ink); }
+table.sep thead .heads th .katex { font-size: 1.05em; }
+table.sep thead th .katex-display, table.sep thead th .katex { white-space: nowrap; }
+table.sep tbody tr.first td { border-top: 1px solid var(--rule); }
+table.sep tbody tr:first-child td { border-top: none; }
+table.sep tbody tr:hover td { background: #ebe6da; }
+table.sep .alt { background: var(--panel); }
+table.sep td.yes { color: var(--ink); font-weight: 600; }
+table.sep td.no, table.sep td.na { color: #9a948a; }

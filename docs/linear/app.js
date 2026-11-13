@@ -36,7 +36,8 @@ const VIEWS = [
   { key: "posterior",  label: "Posterior means" },
   { key: "estimates",  label: "Density of the estimates" },
   { key: "weights",    label: "Inner products and Implied probabilities" },
-  { key: "likelihood", label: "Likelihood surface" }
+  { key: "likelihood", label: "Likelihood surface" },
+  { key: "separation", label: "Separation conditions" }
 ];
 
 const f2 = d3.format(".2f");
@@ -1915,7 +1916,8 @@ function syncKnobs() {
   d3.select("#epsRange").node().parentNode.style.display = onEst ? "none" : "";
   d3.select("#epsRangeCtl").style("display", onEst ? "" : "none");
   // The posterior view reads its own simulation, so none of the global knobs apply.
-  d3.select("#globalKnobs").style("display", state.view === "posterior" ? "none" : "");
+  // The separation table has its own replicate slider and covers every setting.
+  d3.select("#globalKnobs").style("display", state.view === "posterior" || state.view === "separation" ? "none" : "");
 
   d3.select("#epsLoRange").property("value", state.epsLo);
   d3.select("#epsHiRange").property("value", state.epsHi);
@@ -1977,6 +1979,14 @@ async function render() {
   if (state.view === "estimates") {
     renderEstimates();
     prefetch();
+    return;
+  }
+
+  if (state.view === "separation") {
+    window.SepCond.show({
+      host: "#sepTable", key: "linear", title: "Separation conditions", shiftKey: "eps",
+      defaultRep: 41, thetaTex: "$\\boldsymbol{\\theta} = (\\beta_0, \\beta_1)$, $\\boldsymbol{\\theta}_0 = (2, -3)$"
+    });
     return;
   }
 

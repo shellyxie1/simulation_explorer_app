@@ -13,7 +13,9 @@ Each study is 3 contamination levels × a sweep of the shift × 50 replicates of
 sampling distributions of the estimates, the ETEL weights, and the
 log-likelihood surface. A fifth view, *Posterior means* (the second tab), shows kernel densities
 of the BETEL posterior means over the 50 replications, clean against 10%
-contaminated, from the thesis MCMC runs. The three global knobs are written into the URL, so a
+contaminated, from the thesis MCMC runs. A sixth view, *Separation conditions* (the last tab),
+tabulates the separation conditions of the thesis's comparison theorem for every scenario and
+replicate of that study. The three global knobs are written into the URL, so a
 particular sample can be linked to directly, for example
 `lognormal/#weights/05/-3/17`.
 
@@ -28,12 +30,14 @@ docs/                  the site — plain static files, no build step
   d3.min.js            vendored (v7.9.0), shared, so the site runs offline
   linear/
     index.html, app.js
-    data/              meta.json, coefs.json, postmean.json, rep/*.bin
+    data/              meta.json, coefs.json, sepcond.json, postmean.json, rep/*.bin
   lognormal/
     index.html, app.js
-    data/              meta.json, coefs.json, postmean.json, rep/*.bin
+    data/              meta.json, coefs.json, sepcond.json, postmean.json, rep/*.bin
+  sepcond.js           the Separation conditions view, shared by both explorers
 linear/                the linear-regression pipeline
   export_data.R        outputs/*.rds -> ../docs/linear/data/   (base R only)
+  export_sepcond.R     outputs/*.rds -> ../docs/linear/data/sepcond.json
   export_postmean.R    thesis MCMC draws -> ../docs/linear/data/postmean.json
   app.R                the original Shiny app, kept as the reference for each view
   prepare_lite_outputs.R
@@ -41,6 +45,7 @@ linear/                the linear-regression pipeline
 lognormal/             the log-normal pipeline
   00_*.R … 06_*.R      simulation, ETEL fitting, log-likelihood surface
   export_data.R        outputs/*.rds -> ../docs/lognormal/data/   (base R only)
+  export_sepcond.R     outputs/*.rds -> ../docs/lognormal/data/sepcond.json
   export_postmean.R    thesis MCMC means -> ../docs/lognormal/data/postmean.json
   app.R                the original Shiny app
   outputs/
@@ -69,6 +74,20 @@ cd lognormal && Rscript export_data.R
 
 Both read `outputs/*.rds` and rewrite the matching `docs/*/data/`. Nothing but
 base R is needed, and each takes a few seconds.
+
+The separation-condition tables have their own export, run the same way:
+
+```sh
+cd linear    && Rscript export_sepcond.R
+cd lognormal && Rscript export_sepcond.R
+```
+
+Each writes `docs/*/data/sepcond.json`: per replicate, the extremity
+functionals and moderation level of the comparison theorem at the two stored
+maximizers and at the true parameter value (where the inner problem is solved
+again by Newton's method), the largest group of each kind that satisfies a
+condition, and the three log-likelihoods. The thresholds themselves are formed
+in the browser from `n`, `m` and `M'`.
 
 The payload design is the same in both. Only the tilt `λᵀgᵢ` is exported for
 each ETEL fit, not the implied probabilities, because `log πᵢ = λᵀgᵢ −
